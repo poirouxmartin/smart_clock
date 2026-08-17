@@ -4,6 +4,7 @@ import { Audio } from 'expo-av';
 import { Accelerometer, AccelerometerListener, setUpdateIntervalForType, SensorType } from 'expo-sensors';
 import { SleepAnalyzer, AudioFeatures, AccelFeatures, SleepEpochFeatures } from '@/modules/sleep-analysis';
 import { AlarmEngine, createAlarmEngine, ActiveAlarm, AlarmConfig } from '@/modules/alarm-engine';
+import { SoundManager, getSoundManager, PlaybackStatus } from '@/modules/sound-manager';
 
 const CHUNK_DURATION_MS = 1000;
 const SAMPLE_RATE = 16000;
@@ -26,8 +27,15 @@ export function DevToolsScreen() {
     nextWakeTime: number | null;
   }>({ initialized: false, activeAlarms: [], nextWakeTime: null });
 
+  const [soundManagerState, setSoundManagerState] = useState<{
+    initialized: boolean;
+    status: PlaybackStatus | null;
+    sounds: Array<{id: string; name: string; type: string}>;
+  }>({ initialized: false, status: null, sounds: [] });
+
   const analyzerRef = useRef<SleepAnalyzer>(new SleepAnalyzer());
   const engineRef = useRef<AlarmEngine | null>(null);
+  const soundManagerRef = useRef<SoundManager | null>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const accelSubRef = useRef<AccelerometerListener | null>(null);
@@ -60,6 +68,10 @@ export function DevToolsScreen() {
     engine.setCallbacks({
       onAlarmTrigger: (alarm, result) => {
         addLog(`🔔 RÉVEIL DÉCLENCHÉ: ${result.reason} (conf: ${result.confidence.toFixed(2)})`);
+        // Trigger alarm sound
+        if (soundManagerRef.current) {
+          soundManagerRef.current.playAlarm(alarm.alarm.soundId, alarm.alarm.volume, 30000);
+        }
       },
       onStateChange: (alarm) => {
         updateEngineState();
@@ -76,6 +88,26 @@ export function DevToolsScreen() {
     
     return () => {
       engine.shutdown();
+    };
+  }, []);
+
+  useEffect(() => {
+    const sm = getSoundManager();
+    soundManagerRef.current = sm;
+    sm.setStatusCallback((status) => {
+      setSoundManagerState(prev => ({ ...prev, status }));
+    });
+    sm.initialize().then(() => {
+      setSoundManagerState(prev => ({ 
+        ...prev, 
+        initialized: true,
+        sounds: sm.getAllSounds().map(s => ({ id: s.id, name: s.name, type: s.type })),
+      }));
+      addLog('SoundManager initialisé');
+    });
+    
+    return () => {
+      sm.destroy();
     };
   }, []);
 
@@ -439,6 +471,62 @@ export function DevToolsScreen() {
               </View>
             </View>
           ))}
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>SoundManager Test</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Initialisé</Text>
+              <Text style={styles.metricValue}>{soundManagerState.initialized ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>État lecture</Text>
+              <Text style={styles.metricValue}>{soundManagerState.status?.state || 'idle'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Son actuel</Text>
+              <Text style={{ ...styles.metricValue, fontSize: 12 }}>{soundManagerState.status?.soundId || 'Aucun'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Volume</Text>
+              <Text style={styles.metricValue}>{(soundManagerState.status?.volume * 100).toFixed(0)}%</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Position</Text>
+              <Text style={styles.metricValue}>{soundManagerState.status ? `${Math.floor(soundManagerState.status.position / 1000)}s` : '0s'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Durée</Text>
+              <Text style={styles.metricValue}>{soundManagerState.status ? `${Math.floor(soundManagerState.status.duration / 1000)}s` : '0s'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.buttonRow}>
+            {soundManagerState.sounds.slice(0, 6).map(sound => (
+              <TouchableOpacity 
+                key={sound.id}
+                style={[styles.button, styles.buttonSmall, soundManagerState.status?.soundId === sound.id ? styles.buttonStop : styles.buttonStart]} 
+                onPress={() => soundManagerRef.current?.play(sound.id, { volume: 0.7, fadeInDuration: 5000 })}
+              >
+                <Text style={styles.buttonText}>{sound.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonExport]} onPress={() => soundManagerRef.current?.pause()}>
+              <Text style={styles.buttonText}>Pause</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonExport]} onPress={() => soundManagerRef.current?.resume()}>
+              <Text style={styles.buttonText}>Resume</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStop]} onPress={() => soundManagerRef.current?.stop(true)}>
+              <Text style={styles.buttonText}>Stop (fade)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSecondary]} onPress={() => soundManagerRef.current?.playAlarm('birds', 0.8, 10000)}>
+              <Text style={styles.buttonText}>Test Alarme (fade 10s)</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
