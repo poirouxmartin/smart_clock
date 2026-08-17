@@ -6,6 +6,7 @@ import { SleepAnalyzer, AudioFeatures, AccelFeatures, SleepEpochFeatures } from 
 import { AlarmEngine, createAlarmEngine, ActiveAlarm, AlarmConfig } from '@/modules/alarm-engine';
 import { SoundManager, getSoundManager, PlaybackStatus } from '@/modules/sound-manager';
 import { LightController, getLightController, LightDevice, LightState } from '@/modules/light-controller';
+import { BedtimeCalculator, createBedtimeCalculator, BedtimeCalculationInput, BedtimeResult } from '@/modules/bedtime-calculator';
 
 const CHUNK_DURATION_MS = 1000;
 const SAMPLE_RATE = 16000;
@@ -41,7 +42,14 @@ export function DevToolsScreen() {
     discovering: boolean;
   }>({ initialized: false, devices: [], deviceStates: new Map(), discovering: false });
 
+  const [bedtimeState, setBedtimeState] = useState<{
+    initialized: boolean;
+    result: BedtimeResult | null;
+    input: BedtimeCalculationInput;
+  }>({ initialized: false, result: null, input: {} as BedtimeCalculationInput });
+
   const analyzerRef = useRef<SleepAnalyzer>(new SleepAnalyzer());
+  const bedtimeCalcRef = useRef<BedtimeCalculator>(createBedtimeCalculator());
   const engineRef = useRef<AlarmEngine | null>(null);
   const soundManagerRef = useRef<SoundManager | null>(null);
   const lightControllerRef = useRef<LightController | null>(null);
@@ -148,6 +156,23 @@ export function DevToolsScreen() {
     return () => {
       lc.shutdown();
     };
+  }, []);
+
+  useEffect(() => {
+    const calc = createBedtimeCalculator();
+    bedtimeCalcRef.current = calc;
+    
+    const defaultInput: BedtimeCalculationInput = {
+      targetWakeTime: Date.now() + 8 * 60 * 60 * 1000,
+      sleepCycleLength: 90 * 60 * 1000,
+      desiredCycles: 5,
+      fallAsleepDuration: 15 * 60 * 1000,
+      chronotype: 'intermediate',
+    };
+    
+    const result = calc.calculate(defaultInput);
+    setBedtimeState({ initialized: true, result, input: defaultInput });
+    addLog('BedtimeCalculator initialisé');
   }, []);
 
   const updateEngineState = () => {
@@ -629,6 +654,113 @@ export function DevToolsScreen() {
             );
           })}
         </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>BedtimeCalculator Test</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Initialisé</Text>
+              <Text style={styles.metricValue}>{bedtimeState.initialized ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Coucher idéal</Text>
+              <Text style={{ ...styles.metricValue, fontSize: 16 }}>
+                {bedtimeState.result ? new Date(bedtimeState.result.idealBedtime).toLocaleTimeString('fr-FR') : '—'}
+              </Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Fenêtre</Text>
+              <Text style={{ ...styles.metricValue, fontSize: 12 }}>
+                {bedtimeState.result 
+                  ? `${new Date(bedtimeState.result.bedtimeWindow.start).toLocaleTimeString('fr-FR')} - ${new Date(bedtimeState.result.bedtimeWindow.end).toLocaleTimeString('fr-FR')}`
+                  : '—'}
+              </Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Sommeil total</Text>
+              <Text style={styles.metricValue}>
+                {bedtimeState.result ? `${Math.floor(bedtimeState.result.totalSleepTime / 3600000)}h ${Math.floor((bedtimeState.result.totalSleepTime % 3600000) / 60000)}min` : '—'}
+              </Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Cycles</Text>
+              <Text style={styles.metricValue}>{bedtimeState.result?.cycles || '—'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Fin cycle</Text>
+              <Text style={[styles.metricValue, { color: bedtimeState.result?.wakeUpAtEndOfCycle ? '#22c55e' : '#ef4444' }]}>
+                {bedtimeState.result?.wakeUpAtEndOfCycle ? '✅ OUI' : '❌ NON'}
+              </Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Confiance</Text>
+              <Text style={styles.metricValue}>{bedtimeState.result ? `${Math.round(bedtimeState.result.confidence * 100)}%` : '—'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStart]} onPress={() => {
+              const input = { ...bedtimeState.input, targetWakeTime: Date.now() + 7 * 60 * 60 * 1000 };
+              const result = bedtimeCalcRef.current.calculate(input);
+              setBedtimeState(prev => ({ ...prev, result, input }));
+              addLog(`Calcul pour 7h: coucher ${new Date(result.idealBedtime).toLocaleTimeString('fr-FR')}`);
+            }}>
+              <Text style={styles.buttonText}>Test 7h00</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStart]} onPress={() => {
+              const input = { ...bedtimeState.input, targetWakeTime: Date.now() + 8 * 60 * 60 * 1000 };
+              const result = bedtimeCalcRef.current.calculate(input);
+              setBedtimeState(prev => ({ ...prev, result, input }));
+              addLog(`Calcul pour 8h00: coucher ${new Date(result.idealBedtime).toLocaleTimeString('fr-FR')}`);
+            }}>
+              <Text style={styles.buttonText}>Test 8h00</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSecondary]} onPress={() => {
+              const input = { ...bedtimeState.input, chronotype: 'morning' as const };
+              const result = bedtimeCalcRef.current.calculate(input);
+              setBedtimeState(prev => ({ ...prev, result, input }));
+              addLog(`Chronotype matin: coucher ${new Date(result.idealBedtime).toLocaleTimeString('fr-FR')}`);
+            }}>
+              <Text style={styles.buttonText}>Matin</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSecondary]} onPress={() => {
+              const input = { ...bedtimeState.input, chronotype: 'evening' as const };
+              const result = bedtimeCalcRef.current.calculate(input);
+              setBedtimeState(prev => ({ ...prev, result, input }));
+              addLog(`Chronotype soir: coucher ${new Date(result.idealBedtime).toLocaleTimeString('fr-FR')}`);
+            }}>
+              <Text style={styles.buttonText}>Soir</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonExport]} onPress={() => {
+              const input = { ...bedtimeState.input, desiredCycles: 6 };
+              const result = bedtimeCalcRef.current.calculate(input);
+              setBedtimeState(prev => ({ ...prev, result, input }));
+              addLog(`6 cycles: coucher ${new Date(result.idealBedtime).toLocaleTimeString('fr-FR')}`);
+            }}>
+              <Text style={styles.buttonText}>6 cycles</Text>
+            </TouchableOpacity>
+          </View>
+
+          {bedtimeState.result && (
+            <View style={styles.reasoning}>
+              <Text style={styles.reasoningTitle}>Raisonnement :</Text>
+              {bedtimeState.result.reasoning.map((r, i) => (
+                <Text key={i} style={styles.reasoningItem}>• {r}</Text>
+              ))}
+            </View>
+          )}
+
+          {bedtimeState.result && bedtimeState.result.alternativeBedtimes.length > 0 && (
+            <View style={styles.reasoning}>
+              <Text style={styles.reasoningTitle}>Alternatives :</Text>
+              {bedtimeState.result.alternativeBedtimes.map((alt, i) => (
+                <Text key={i} style={styles.reasoningItem}>
+                  {alt.cycles} cycles → {new Date(alt.bedtime).toLocaleTimeString('fr-FR')} ({alt.pros}) / {alt.cons}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -668,4 +800,7 @@ const styles = StyleSheet.create({
   alarmItemActions: { flexDirection: 'row', gap: 8 },
   buttonSmall: { paddingVertical: 8, minWidth: 80 },
   buttonSecondary: { backgroundColor: '#7c3aed' },
+  reasoning: { marginTop: 12, padding: 12, backgroundColor: '#0a0e1a', borderRadius: 8 },
+  reasoningTitle: { fontSize: 13, fontWeight: '600', color: '#e2e8f0', marginBottom: 8 },
+  reasoningItem: { fontSize: 12, color: '#94a3b8', marginBottom: 4, fontFamily: 'monospace' },
 });
