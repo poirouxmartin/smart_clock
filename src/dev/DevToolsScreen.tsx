@@ -8,6 +8,7 @@ import { SoundManager, getSoundManager, PlaybackStatus } from '@/modules/sound-m
 import { LightController, getLightController, LightDevice, LightState } from '@/modules/light-controller';
 import { BedtimeCalculator, createBedtimeCalculator, BedtimeCalculationInput, BedtimeResult } from '@/modules/bedtime-calculator';
 import { UserProfileManager, getUserProfileManager, UserProfile, SleepSession, AdaptiveLearningData } from '@/modules/user-profile';
+import { NotificationService, getNotificationService, NotificationPreferences } from '@/modules/notifications';
 
 const CHUNK_DURATION_MS = 1000;
 const SAMPLE_RATE = 16000;
@@ -55,6 +56,14 @@ export function DevToolsScreen() {
     learning: AdaptiveLearningData | null;
     sessions: SleepSession[];
   }>({ initialized: false, profile: null, learning: null, sessions: [] });
+
+  const [notificationState, setNotificationState] = useState<{
+    initialized: boolean;
+    permissions: any;
+    pushToken: string | null;
+    preferences: NotificationPreferences;
+    scheduledCount: number;
+  }>({ initialized: false, permissions: null, pushToken: null, preferences: {} as NotificationPreferences, scheduledCount: 0 });
 
   const analyzerRef = useRef<SleepAnalyzer>(new SleepAnalyzer());
   const bedtimeCalcRef = useRef<BedtimeCalculator>(createBedtimeCalculator());
@@ -200,6 +209,29 @@ export function DevToolsScreen() {
     
     return () => {
       // cleanup if needed
+    };
+  }, []);
+
+  useEffect(() => {
+    const ns = getNotificationService();
+    ns.initialize().then(() => {
+      setNotificationState({
+        initialized: true,
+        permissions: ns.getPermissions(),
+        pushToken: ns.getPushTokenSync()?.token || null,
+        preferences: ns.getPreferences(),
+        scheduledCount: 0,
+      });
+      addLog('NotificationService initialisé');
+      return ns.getScheduledNotifications();
+    }).then(notifs => {
+      setNotificationState(prev => ({ ...prev, scheduledCount: notifs.length }));
+    }).catch(e => {
+      addLog(`Erreur notifications: ${e}`);
+    });
+    
+    return () => {
+      ns.shutdown();
     };
   }, []);
 
@@ -915,6 +947,130 @@ export function DevToolsScreen() {
               <Text style={styles.reasoningItem}>Endormissement appris: {Math.round(userProfileState.learning.fallAsleepDuration / 60000)}min</Text>
               <Text style={styles.reasoningItem}>Échantillons: {userProfileState.learning.sampleCount}</Text>
               <Text style={styles.reasoningItem}>MAJ: {new Date(userProfileState.learning.lastUpdated).toLocaleTimeString('fr-FR')}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>NotificationService Test</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Initialisé</Text>
+              <Text style={styles.metricValue}>{notificationState.initialized ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Permissions</Text>
+              <Text style={styles.metricValue}>{notificationState.permissions?.granted ? '✅ Accordées' : '❌ Refusées'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Push Token</Text>
+              <Text style={{ ...styles.metricValue, fontSize: 10 }}>
+                {notificationState.pushToken ? `${notificationState.pushToken.slice(0, 20)}...` : '—'}
+              </Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Notifs programmées</Text>
+              <Text style={styles.metricValue}>{notificationState.scheduledCount}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Alarme activée</Text>
+              <Text style={styles.metricValue}>{notificationState.preferences.alarmEnabled ? '✅' : '❌'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Rappel coucher</Text>
+              <Text style={styles.metricValue}>{notificationState.preferences.bedtimeReminderEnabled ? '✅' : '❌'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Sons</Text>
+              <Text style={styles.metricValue}>{notificationState.preferences.soundEnabled ? '✅' : '❌'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Vibration</Text>
+              <Text style={styles.metricValue}>{notificationState.preferences.vibrationEnabled ? '✅' : '❌'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Alertes critiques</Text>
+              <Text style={styles.metricValue}>{notificationState.preferences.criticalAlertsEnabled ? '✅' : '❌'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStart]} onPress={async () => {
+              const ns = getNotificationService();
+              await ns.requestPermissions();
+              setNotificationState(prev => ({ ...prev, permissions: ns.getPermissions() }));
+              const token = await ns.getPushToken();
+              setNotificationState(prev => ({ ...prev, pushToken: token?.token || null }));
+              addLog('Permissions demandées');
+            }}>
+              <Text style={styles.buttonText}>Demander permissions</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSecondary]} onPress={async () => {
+              const ns = getNotificationService();
+              await ns.updatePreferences({ criticalAlertsEnabled: !notificationState.preferences.criticalAlertsEnabled });
+              setNotificationState(prev => ({ ...prev, preferences: ns.getPreferences() }));
+              addLog('Alertes critiques basculées');
+            }}>
+              <Text style={styles.buttonText}>Alertes critiques</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonExport]} onPress={async () => {
+              const ns = getNotificationService();
+              const notifs = await ns.getScheduledNotifications();
+              setNotificationState(prev => ({ ...prev, scheduledCount: notifs.length }));
+              addLog(`${notifs.length} notifications programmées`);
+              console.log('Scheduled:', notifs);
+            }}>
+              <Text style={styles.buttonText}>Lister programmées</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStop]} onPress={async () => {
+              const ns = getNotificationService();
+              await ns.cancelAllNotifications();
+              setNotificationState(prev => ({ ...prev, scheduledCount: 0 }));
+              addLog('Toutes notifications annulées');
+            }}>
+              <Text style={styles.buttonText}>Annuler toutes</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSimulate]} onPress={async () => {
+              const ns = getNotificationService();
+              await ns.presentLocalNotification({
+                title: '🔔 Test notification',
+                body: 'Ceci est une notification de test locale',
+                data: { test: true, timestamp: Date.now() },
+                sound: 'default',
+              });
+              addLog('Notification locale envoyée');
+            }}>
+              <Text style={styles.buttonText}>Test local</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSecondary]} onPress={async () => {
+              const ns = getNotificationService();
+              const wakeTime = Date.now() + 2 * 60 * 1000;
+              await ns.scheduleAlarmNotification({
+                id: 'test_alarm',
+                label: 'Test 2min',
+                wakeWindowStart: new Date(wakeTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                wakeWindowEnd: new Date(wakeTime + 90 * 60 * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                days: [0,1,2,3,4,5,6],
+                enabled: true,
+                soundId: 'birds',
+                volume: 0.7,
+                lightEnabled: false,
+                vibrationEnabled: true,
+                snoozeEnabled: true,
+                snoozeDuration: 10,
+              }, wakeTime, wakeTime, 'Test manuel');
+              addLog('Alarme test programmée dans 2min');
+            }}>
+              <Text style={styles.buttonText}>Test alarme (2min)</Text>
+            </TouchableOpacity>
+          </View>
+
+          {notificationState.preferences && (
+            <View style={styles.reasoning}>
+              <Text style={styles.reasoningTitle}>Préférences :</Text>
+              {Object.entries(notificationState.preferences).map(([k, v]) => (
+                <Text key={k} style={styles.reasoningItem}>{k}: {v ? '✅' : '❌'}</Text>
+              ))}
             </View>
           )}
         </View>
