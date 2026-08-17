@@ -9,6 +9,7 @@ import { LightController, getLightController, LightDevice, LightState } from '@/
 import { BedtimeCalculator, createBedtimeCalculator, BedtimeCalculationInput, BedtimeResult } from '@/modules/bedtime-calculator';
 import { UserProfileManager, getUserProfileManager, UserProfile, SleepSession, AdaptiveLearningData } from '@/modules/user-profile';
 import { NotificationService, getNotificationService, NotificationPreferences } from '@/modules/notifications';
+import { I18nService, getI18nService, SupportedLocale } from '@/modules/i18n';
 
 const CHUNK_DURATION_MS = 1000;
 const SAMPLE_RATE = 16000;
@@ -64,6 +65,13 @@ export function DevToolsScreen() {
     preferences: NotificationPreferences;
     scheduledCount: number;
   }>({ initialized: false, permissions: null, pushToken: null, preferences: {} as NotificationPreferences, scheduledCount: 0 });
+
+  const [i18nState, setI18nState] = useState<{
+    initialized: boolean;
+    currentLocale: SupportedLocale;
+    locales: SupportedLocale[];
+    isRTL: boolean;
+  }>({ initialized: false, currentLocale: 'fr', locales: [], isRTL: false });
 
   const analyzerRef = useRef<SleepAnalyzer>(new SleepAnalyzer());
   const bedtimeCalcRef = useRef<BedtimeCalculator>(createBedtimeCalculator());
@@ -232,6 +240,25 @@ export function DevToolsScreen() {
     
     return () => {
       ns.shutdown();
+    };
+  }, []);
+
+  useEffect(() => {
+    const i18n = getI18nService();
+    i18n.initialize().then(() => {
+      setI18nState({
+        initialized: true,
+        currentLocale: i18n.getCurrentLocale(),
+        locales: i18n.getSupportedLocales(),
+        isRTL: i18n.isRTL(),
+      });
+      addLog(`I18nService initialisé: ${i18n.getCurrentLocale()}`);
+    }).catch(e => {
+      addLog(`Erreur i18n: ${e}`);
+    });
+    
+    return () => {
+      // cleanup if needed
     };
   }, []);
 
@@ -1070,6 +1097,99 @@ export function DevToolsScreen() {
               <Text style={styles.reasoningTitle}>Préférences :</Text>
               {Object.entries(notificationState.preferences).map(([k, v]) => (
                 <Text key={k} style={styles.reasoningItem}>{k}: {v ? '✅' : '❌'}</Text>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>I18nService Test</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Initialisé</Text>
+              <Text style={styles.metricValue}>{i18nState.initialized ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Locale actuelle</Text>
+              <Text style={styles.metricValue}>{i18nState.currentLocale}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>RTL</Text>
+              <Text style={styles.metricValue}>{i18nState.isRTL ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Locales supportées</Text>
+              <Text style={styles.metricValue}>{i18nState.locales.length}</Text>
+            </View>
+          </View>
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStart]} onPress={async () => {
+              const i18n = getI18nService();
+              await i18n.changeLocale('fr');
+              setI18nState(prev => ({ ...prev, currentLocale: 'fr', isRTL: i18n.isRTL() }));
+              addLog('Locale changée: fr');
+            }}>
+              <Text style={styles.buttonText}>Français</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSecondary]} onPress={async () => {
+              const i18n = getI18nService();
+              await i18n.changeLocale('en');
+              setI18nState(prev => ({ ...prev, currentLocale: 'en', isRTL: i18n.isRTL() }));
+              addLog('Locale changée: en');
+            }}>
+              <Text style={styles.buttonText}>English</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonExport]} onPress={async () => {
+              const i18n = getI18nService();
+              await i18n.changeLocale('es');
+              setI18nState(prev => ({ ...prev, currentLocale: 'es', isRTL: i18n.isRTL() }));
+              addLog('Locale changée: es');
+            }}>
+              <Text style={styles.buttonText}>Español</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSimulate]} onPress={async () => {
+              const i18n = getI18nService();
+              await i18n.changeLocale('de');
+              setI18nState(prev => ({ ...prev, currentLocale: 'de', isRTL: i18n.isRTL() }));
+              addLog('Locale changée: de');
+            }}>
+              <Text style={styles.buttonText}>Deutsch</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStop]} onPress={async () => {
+              const i18n = getI18nService();
+              addLog('Test traductions:');
+              addLog(`  common.ok: ${i18n.tCommon('ok')}`);
+              addLog(`  home.nextAlarm: ${i18n.tHome('nextAlarm')}`);
+              addLog(`  alarm.smartWake: ${i18n.tAlarm('smartWake')}`);
+              addLog(`  sleep.sleepAnalysis: ${i18n.tSleep('sleepAnalysis')}`);
+              addLog(`  settings.title: ${i18n.tSettings('title')}`);
+              addLog(`  notifications.alarm: ${i18n.tNotifications('alarm')}`);
+              addLog(`  sounds.birds: ${i18n.tSounds('birds')}`);
+              addLog(`  lights.wakeUpLight: ${i18n.tLights('wakeUpLight')}`);
+              addLog(`  profile.chronotype: ${i18n.tProfile('chronotype')}`);
+              addLog(`  onboarding.welcome: ${i18n.tOnboarding('welcome')}`);
+              addLog(`  errors.generic: ${i18n.tErrors('generic')}`);
+            }}>
+              <Text style={styles.buttonText}>Test traductions</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonExport]} onPress={async () => {
+              const i18n = getI18nService();
+              const now = new Date();
+              addLog(`Format date: ${i18n.formatDate(now)}`);
+              addLog(`Format time: ${i18n.formatTime(now)}`);
+              addLog(`Format dateTime: ${i18n.formatDateTime(now)}`);
+              addLog(`Format duration 7.5h: ${i18n.formatDuration(7.5 * 3600000)}`);
+            }}>
+              <Text style={styles.buttonText}>Test formatage</Text>
+            </TouchableOpacity>
+          </View>
+
+          {i18nState.locales.length > 0 && (
+            <View style={styles.reasoning}>
+              <Text style={styles.reasoningTitle}>Locales supportées :</Text>
+              {i18nState.locales.map((loc, i) => (
+                <Text key={i} style={styles.reasoningItem}>{loc} ({loc === i18nState.currentLocale ? 'ACTUELLE' : ''})</Text>
               ))}
             </View>
           )}
