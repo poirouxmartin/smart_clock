@@ -7,6 +7,7 @@ import { AlarmEngine, createAlarmEngine, ActiveAlarm, AlarmConfig } from '@/modu
 import { SoundManager, getSoundManager, PlaybackStatus } from '@/modules/sound-manager';
 import { LightController, getLightController, LightDevice, LightState } from '@/modules/light-controller';
 import { BedtimeCalculator, createBedtimeCalculator, BedtimeCalculationInput, BedtimeResult } from '@/modules/bedtime-calculator';
+import { UserProfileManager, getUserProfileManager, UserProfile, SleepSession, AdaptiveLearningData } from '@/modules/user-profile';
 
 const CHUNK_DURATION_MS = 1000;
 const SAMPLE_RATE = 16000;
@@ -48,8 +49,16 @@ export function DevToolsScreen() {
     input: BedtimeCalculationInput;
   }>({ initialized: false, result: null, input: {} as BedtimeCalculationInput });
 
+  const [userProfileState, setUserProfileState] = useState<{
+    initialized: boolean;
+    profile: UserProfile | null;
+    learning: AdaptiveLearningData | null;
+    sessions: SleepSession[];
+  }>({ initialized: false, profile: null, learning: null, sessions: [] });
+
   const analyzerRef = useRef<SleepAnalyzer>(new SleepAnalyzer());
   const bedtimeCalcRef = useRef<BedtimeCalculator>(createBedtimeCalculator());
+  const profileManagerRef = useRef<UserProfileManager | null>(null);
   const engineRef = useRef<AlarmEngine | null>(null);
   const soundManagerRef = useRef<SoundManager | null>(null);
   const lightControllerRef = useRef<LightController | null>(null);
@@ -173,6 +182,25 @@ export function DevToolsScreen() {
     const result = calc.calculate(defaultInput);
     setBedtimeState({ initialized: true, result, input: defaultInput });
     addLog('BedtimeCalculator initialisé');
+  }, []);
+
+  useEffect(() => {
+    const pm = getUserProfileManager();
+    profileManagerRef.current = pm;
+    
+    pm.initialize().then(profile => {
+      setUserProfileState(prev => ({ ...prev, initialized: true, profile }));
+      addLog('UserProfileManager initialisé');
+      return pm.getAdaptiveLearning();
+    }).then(learning => {
+      setUserProfileState(prev => ({ ...prev, learning }));
+    }).catch(e => {
+      addLog(`Erreur profil: ${e}`);
+    });
+    
+    return () => {
+      // cleanup if needed
+    };
   }, []);
 
   const updateEngineState = () => {
@@ -758,6 +786,135 @@ export function DevToolsScreen() {
                   {alt.cycles} cycles → {new Date(alt.bedtime).toLocaleTimeString('fr-FR')} ({alt.pros}) / {alt.cons}
                 </Text>
               ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>UserProfileManager Test</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Initialisé</Text>
+              <Text style={styles.metricValue}>{userProfileState.initialized ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Chronotype</Text>
+              <Text style={styles.metricValue}>{userProfileState.profile?.chronotype || '—'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Cycle length</Text>
+              <Text style={styles.metricValue}>{userProfileState.profile ? `${Math.round(userProfileState.profile.sleepCycleLength / 60000)}min` : '—'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Endormissement</Text>
+              <Text style={styles.metricValue}>{userProfileState.profile ? `${Math.round(userProfileState.profile.fallAsleepDuration / 60000)}min` : '—'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Cycles visés</Text>
+              <Text style={styles.metricValue}>{userProfileState.profile?.desiredCycles || '—'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Volume défaut</Text>
+              <Text style={styles.metricValue}>{userProfileState.profile ? `${Math.round(userProfileState.profile.defaultVolume * 100)}%` : '—'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>RMS baseline</Text>
+              <Text style={styles.metricValue}>{userProfileState.learning ? userProfileState.learning.rmsBaseline.toFixed(4) : '—'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Accel baseline</Text>
+              <Text style={styles.metricValue}>{userProfileState.learning ? userProfileState.learning.accelBaseline.toFixed(4) : '—'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Sessions</Text>
+              <Text style={styles.metricValue}>{userProfileState.sessions.length}</Text>
+            </View>
+          </View>
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStart]} onPress={async () => {
+              const pm = profileManagerRef.current;
+              if (!pm) return;
+              await pm.updateSleepPreferences({ chronotype: 'morning' });
+              const p = pm.getProfile();
+              setUserProfileState(prev => ({ ...prev, profile: p }));
+              addLog('Chronotype mis à jour: morning');
+            }}>
+              <Text style={styles.buttonText}>Chronotype: Matin</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSecondary]} onPress={async () => {
+              const pm = profileManagerRef.current;
+              if (!pm) return;
+              await pm.updateSleepPreferences({ chronotype: 'evening' });
+              const p = pm.getProfile();
+              setUserProfileState(prev => ({ ...prev, profile: p }));
+              addLog('Chronotype mis à jour: evening');
+            }}>
+              <Text style={styles.buttonText}>Chronotype: Soir</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonExport]} onPress={async () => {
+              const pm = profileManagerRef.current;
+              if (!pm) return;
+              await pm.updateSleepPreferences({ desiredCycles: 6 });
+              const p = pm.getProfile();
+              setUserProfileState(prev => ({ ...prev, profile: p }));
+              addLog('Cycles visés: 6');
+            }}>
+              <Text style={styles.buttonText}>6 cycles</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSimulate]} onPress={async () => {
+              const pm = profileManagerRef.current;
+              if (!pm) return;
+              const session = await pm.saveSleepSession({
+                startTime: Date.now() - 8 * 60 * 60 * 1000,
+                endTime: Date.now(),
+                targetWakeWindow: { start: Date.now() - 30 * 60 * 1000, end: Date.now() + 60 * 60 * 1000 },
+                actualWakeTime: Date.now(),
+                wakeTriggerReason: 'Test manual',
+                wakeConfidence: 0.9,
+                totalSleepTime: 7.5 * 60 * 60 * 1000,
+                sleepEfficiency: 85,
+                cyclesCount: 5,
+                qualityRating: 'good',
+                moodRating: 4,
+              });
+              const sessions = await pm.getRecentSessions(10);
+              setUserProfileState(prev => ({ ...prev, sessions }));
+              addLog(`Session test sauvegardée: ${session.id}`);
+            }}>
+              <Text style={styles.buttonText}>Créer session test</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStop]} onPress={async () => {
+              const pm = profileManagerRef.current;
+              if (!pm) return;
+              const json = await pm.exportData();
+              addLog('Export JSON profil (console)');
+              console.log(json);
+            }}>
+              <Text style={styles.buttonText}>Exporter profil</Text>
+            </TouchableOpacity>
+          </View>
+
+          {userProfileState.sessions.length > 0 && (
+            <View style={styles.reasoning}>
+              <Text style={styles.reasoningTitle}>Dernières sessions :</Text>
+              {userProfileState.sessions.slice(0, 5).map((s, i) => (
+                <Text key={i} style={styles.reasoningItem}>
+                  {new Date(s.startTime).toLocaleDateString('fr-FR')} • {Math.round((s.totalSleepTime || 0) / 3600000 * 10) / 10}h • {s.sleepEfficiency}% • {s.qualityRating || 'NR'}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {userProfileState.learning && (
+            <View style={styles.reasoning}>
+              <Text style={styles.reasoningTitle}>Apprentissage adaptatif :</Text>
+              <Text style={styles.reasoningItem}>RMS baseline: {userProfileState.learning.rmsBaseline.toFixed(6)}</Text>
+              <Text style={styles.reasoningItem}>Accel baseline: {userProfileState.learning.accelBaseline.toFixed(6)}</Text>
+              <Text style={styles.reasoningItem}>Cycle appris: {Math.round(userProfileState.learning.cycleLength / 60000)}min</Text>
+              <Text style={styles.reasoningItem}>Endormissement appris: {Math.round(userProfileState.learning.fallAsleepDuration / 60000)}min</Text>
+              <Text style={styles.reasoningItem}>Échantillons: {userProfileState.learning.sampleCount}</Text>
+              <Text style={styles.reasoningItem}>MAJ: {new Date(userProfileState.learning.lastUpdated).toLocaleTimeString('fr-FR')}</Text>
             </View>
           )}
         </View>
