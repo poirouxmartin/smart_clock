@@ -67,4 +67,6 @@ export type RootStackParamList = {
   SleepAnalysis: { sessionId?: string };
   Settings: undefined;
   DevTools: undefined;
+  CustomSounds: undefined;
+  Lights: undefined;
 };

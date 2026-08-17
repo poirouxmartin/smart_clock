@@ -169,6 +169,7 @@ export const fr = {
     version: 'Version',
     github: 'Code source (GitHub)',
     licenses: 'Licences open source',
+    exportError: 'Erreur lors de l\'exportation',
   },
   notifications: {
     title: 'Notifications',

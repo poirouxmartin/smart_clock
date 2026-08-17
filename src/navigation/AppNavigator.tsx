@@ -4,6 +4,8 @@ import { AlarmSetupScreen } from '@/screens/AlarmSetupScreen';
 import { SleepAnalysisScreen } from '@/screens/SleepAnalysisScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { DevToolsScreen } from '@/dev/DevToolsScreen';
+import { CustomSoundsScreen } from '@/screens/CustomSoundsScreen';
+import { LightsScreen } from '@/screens/LightsScreen';
 import type { RootStackParamList } from '@/types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -21,6 +23,8 @@ export function AppNavigator() {
       <Stack.Screen name="SleepAnalysis" component={SleepAnalysisScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="DevTools" component={DevToolsScreen} />
+      <Stack.Screen name="CustomSounds" component={CustomSoundsScreen} />
+      <Stack.Screen name="Lights" component={LightsScreen} />
     </Stack.Navigator>
   );
 }
