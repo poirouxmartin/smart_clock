@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Ale
 import { Audio } from 'expo-av';
 import { Accelerometer, AccelerometerListener, setUpdateIntervalForType, SensorType } from 'expo-sensors';
 import { SleepAnalyzer, AudioFeatures, AccelFeatures, SleepEpochFeatures } from '@/modules/sleep-analysis';
+import { AlarmEngine, createAlarmEngine, ActiveAlarm, AlarmConfig } from '@/modules/alarm-engine';
 
 const CHUNK_DURATION_MS = 1000;
 const SAMPLE_RATE = 16000;
@@ -19,7 +20,14 @@ export function DevToolsScreen() {
   const [epochHistory, setEpochHistory] = useState<SleepEpochFeatures[]>([]);
   const [wakeTrigger, setWakeTrigger] = useState<{shouldWake: boolean; confidence: number; reason: string} | null>(null);
 
+  const [alarmEngineState, setAlarmEngineState] = useState<{
+    initialized: boolean;
+    activeAlarms: ActiveAlarm[];
+    nextWakeTime: number | null;
+  }>({ initialized: false, activeAlarms: [], nextWakeTime: null });
+
   const analyzerRef = useRef<SleepAnalyzer>(new SleepAnalyzer());
+  const engineRef = useRef<AlarmEngine | null>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const accelSubRef = useRef<AccelerometerListener | null>(null);
@@ -43,6 +51,44 @@ export function DevToolsScreen() {
       timerRef.current && clearInterval(timerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const engine = createAlarmEngine({
+      enableForegroundService: false,
+    });
+    engine.setSleepAnalyzer(analyzerRef.current);
+    engine.setCallbacks({
+      onAlarmTrigger: (alarm, result) => {
+        addLog(`🔔 RÉVEIL DÉCLENCHÉ: ${result.reason} (conf: ${result.confidence.toFixed(2)})`);
+      },
+      onStateChange: (alarm) => {
+        updateEngineState();
+      },
+      onError: (error, context) => {
+        addLog(`❌ Erreur ${context}: ${error.message}`);
+      },
+    });
+    engineRef.current = engine;
+    engine.initialize().then(() => {
+      setAlarmEngineState(prev => ({ ...prev, initialized: true }));
+      addLog('AlarmEngine initialisé');
+    });
+    
+    return () => {
+      engine.shutdown();
+    };
+  }, []);
+
+  const updateEngineState = () => {
+    if (!engineRef.current) return;
+    setAlarmEngineState({
+      initialized: true,
+      activeAlarms: engineRef.current.getAllActiveAlarms(),
+      nextWakeTime: engineRef.current.getAllActiveAlarms()[0] 
+        ? engineRef.current.getNextWakeTime(engineRef.current.getAllActiveAlarms()[0].alarm.id) 
+        : null,
+    });
+  };
 
   const processAudioChunk = useCallback((samples: Float32Array) => {
     const timestamp = Date.now();
@@ -155,6 +201,47 @@ export function DevToolsScreen() {
     const trigger = analyzerRef.current.checkWakeTrigger(windowStart, now + 60 * 60 * 1000, now);
     setWakeTrigger(trigger);
     addLog(`Simulation fenêtre: ${trigger.shouldWake ? 'RÉVEIL' : 'attente'} - ${trigger.reason} (conf: ${trigger.confidence.toFixed(2)})`);
+  };
+
+  const createTestAlarm = (minutesFromNow: number = 2) => {
+    if (!engineRef.current) return;
+    
+    const now = Date.now();
+    const wakeStart = now + minutesFromNow * 60 * 1000;
+    const wakeEnd = wakeStart + 90 * 60 * 1000;
+    
+    const testAlarm: AlarmConfig = {
+      id: `test_${Date.now()}`,
+      label: `Test dans ${minutesFromNow}min`,
+      wakeWindowStart: new Date(wakeStart).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      wakeWindowEnd: new Date(wakeEnd).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      days: [0,1,2,3,4,5,6],
+      enabled: true,
+      soundId: 'birds',
+      volume: 0.7,
+      lightEnabled: false,
+      vibrationEnabled: true,
+      snoozeEnabled: true,
+      snoozeDuration: 10,
+    };
+    
+    engineRef.current.addAlarm(testAlarm);
+    addLog(`Test alarm créé: démarre dans ${minutesFromNow}min (fenêtre: ${testAlarm.wakeWindowStart} - ${testAlarm.wakeWindowEnd})`);
+    updateEngineState();
+  };
+
+  const dismissTestAlarm = (alarmId: string) => {
+    if (!engineRef.current) return;
+    engineRef.current.dismissAlarm(alarmId);
+    addLog(`Alarme ${alarmId} rejetée`);
+    updateEngineState();
+  };
+
+  const snoozeTestAlarm = (alarmId: string) => {
+    if (!engineRef.current) return;
+    const result = engineRef.current.snoozeAlarm(alarmId);
+    addLog(`Alarme ${alarmId} ${result ? 'reportée (snooze)' : 'échec snooze (max atteint)'}`);
+    updateEngineState();
   };
 
   return (
@@ -303,6 +390,56 @@ export function DevToolsScreen() {
             ))}
           </View>
         </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>AlarmEngine Test</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Initialisé</Text>
+              <Text style={styles.metricValue}>{alarmEngineState.initialized ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Alarmes actives</Text>
+              <Text style={styles.metricValue}>{alarmEngineState.activeAlarms.length}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Prochain réveil</Text>
+              <Text style={{ ...styles.metricValue, fontSize: 12 }}>
+                {alarmEngineState.nextWakeTime 
+                  ? new Date(alarmEngineState.nextWakeTime).toLocaleTimeString('fr-FR')
+                  : 'Aucun'}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={[styles.button, styles.buttonStart]} onPress={() => createTestAlarm(1)}>
+              <Text style={styles.buttonText}>Test 1min</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonStart]} onPress={() => createTestAlarm(2)}>
+              <Text style={styles.buttonText}>Test 2min</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonExport]} onPress={() => createTestAlarm(5)}>
+              <Text style={styles.buttonText}>Test 5min</Text>
+            </TouchableOpacity>
+          </View>
+
+          {alarmEngineState.activeAlarms.map(alarm => (
+            <View key={alarm.alarm.id} style={styles.alarmItem}>
+              <Text style={styles.alarmItemLabel}>
+                {alarm.alarm.label} • {alarm.state} • Snooze: {alarm.snoozeCount}
+              </Text>
+              <View style={styles.alarmItemActions}>
+                <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSecondary]} onPress={() => snoozeTestAlarm(alarm.alarm.id)}>
+                  <Text style={styles.buttonText}>Snooze</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStop]} onPress={() => dismissTestAlarm(alarm.alarm.id)}>
+                  <Text style={styles.buttonText}>Dismiss</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -337,4 +474,9 @@ const styles = StyleSheet.create({
   chartHint: { fontSize: 11, color: '#64748b', textAlign: 'center' },
   logs: { maxHeight: 200, backgroundColor: '#0a0e1a', borderRadius: 8, padding: 12 },
   logLine: { fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', marginBottom: 2 },
+  alarmItem: { backgroundColor: '#0a0e1a', borderRadius: 8, padding: 12, marginTop: 8 },
+  alarmItemLabel: { fontSize: 13, color: '#e2e8f0', marginBottom: 8 },
+  alarmItemActions: { flexDirection: 'row', gap: 8 },
+  buttonSmall: { paddingVertical: 8, minWidth: 80 },
+  buttonSecondary: { backgroundColor: '#7c3aed' },
 });
