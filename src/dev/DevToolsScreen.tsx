@@ -5,6 +5,7 @@ import { Accelerometer, AccelerometerListener, setUpdateIntervalForType, SensorT
 import { SleepAnalyzer, AudioFeatures, AccelFeatures, SleepEpochFeatures } from '@/modules/sleep-analysis';
 import { AlarmEngine, createAlarmEngine, ActiveAlarm, AlarmConfig } from '@/modules/alarm-engine';
 import { SoundManager, getSoundManager, PlaybackStatus } from '@/modules/sound-manager';
+import { LightController, getLightController, LightDevice, LightState } from '@/modules/light-controller';
 
 const CHUNK_DURATION_MS = 1000;
 const SAMPLE_RATE = 16000;
@@ -33,9 +34,17 @@ export function DevToolsScreen() {
     sounds: Array<{id: string; name: string; type: string}>;
   }>({ initialized: false, status: null, sounds: [] });
 
+  const [lightControllerState, setLightControllerState] = useState<{
+    initialized: boolean;
+    devices: LightDevice[];
+    deviceStates: Map<string, LightState>;
+    discovering: boolean;
+  }>({ initialized: false, devices: [], deviceStates: new Map(), discovering: false });
+
   const analyzerRef = useRef<SleepAnalyzer>(new SleepAnalyzer());
   const engineRef = useRef<AlarmEngine | null>(null);
   const soundManagerRef = useRef<SoundManager | null>(null);
+  const lightControllerRef = useRef<LightController | null>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const accelSubRef = useRef<AccelerometerListener | null>(null);
@@ -108,6 +117,36 @@ export function DevToolsScreen() {
     
     return () => {
       sm.destroy();
+    };
+  }, []);
+
+  useEffect(() => {
+    const lc = getLightController({ autoDiscover: false });
+    lightControllerRef.current = lc;
+    
+    lc.onDeviceListChange((devices) => {
+      setLightControllerState(prev => ({ ...prev, devices }));
+    });
+    
+    lc.onStateChange((deviceId, state) => {
+      setLightControllerState(prev => {
+        const next = new Map(prev.deviceStates);
+        next.set(deviceId, state);
+        return { ...prev, deviceStates: next };
+      });
+    });
+    
+    lc.initialize().then(() => {
+      setLightControllerState(prev => ({ 
+        ...prev, 
+        initialized: true,
+        devices: lc.getAllDevices(),
+      }));
+      addLog('LightController initialisé');
+    });
+    
+    return () => {
+      lc.shutdown();
     };
   }, []);
 
@@ -527,6 +566,68 @@ export function DevToolsScreen() {
               <Text style={styles.buttonText}>Test Alarme (fade 10s)</Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>LightController Test</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Initialisé</Text>
+              <Text style={styles.metricValue}>{lightControllerState.initialized ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Appareils détectés</Text>
+              <Text style={styles.metricValue}>{lightControllerState.devices.length}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Connectés</Text>
+              <Text style={styles.metricValue}>{lightControllerState.devices.filter(d => d.isConnected).length}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Découverte</Text>
+              <Text style={styles.metricValue}>{lightControllerState.discovering ? '🔄 En cours' : '⏸ Arrêt'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={[styles.button, styles.buttonStart]} onPress={() => {
+              setLightControllerState(prev => ({ ...prev, discovering: true }));
+              lightControllerRef.current?.discoverDevices(10000).then(() => {
+                setLightControllerState(prev => ({ ...prev, discovering: false }));
+              });
+            }}>
+              <Text style={styles.buttonText}>Découvrir</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonExport]} onPress={() => lightControllerRef.current?.cancelWakeUpLight()}>
+              <Text style={styles.buttonText}>Annuler Wake-up</Text>
+            </TouchableOpacity>
+          </View>
+
+          {lightControllerState.devices.map(device => {
+            const state = lightControllerState.deviceStates.get(device.id);
+            return (
+              <View key={device.id} style={styles.alarmItem}>
+                <Text style={styles.alarmItemLabel}>
+                  {device.name} ({device.type}) • {device.isConnected ? '🟢 Connecté' : '🔴 Déconnecté'}
+                  {state && ` • ${state.on ? '💡 Allumé' : '⭕ Éteint'} • ${state.brightness}%`}
+                </Text>
+                <View style={styles.alarmItemActions}>
+                  <TouchableOpacity style={[styles.button, styles.buttonSmall, state?.on ? styles.buttonStop : styles.buttonStart]} onPress={() => lightControllerRef.current?.turnOn(device.id, 1000)}>
+                    <Text style={styles.buttonText}>{state?.on ? 'Éteindre' : 'Allumer'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSecondary]} onPress={() => lightControllerRef.current?.setBrightness(device.id, 50, 2000)}>
+                    <Text style={styles.buttonText}>50%</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonExport]} onPress={() => lightControllerRef.current?.setColorTemperature(device.id, 3000, 2000)}>
+                    <Text style={styles.buttonText}>3000K</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonSimulate]} onPress={() => lightControllerRef.current?.executeWakeUpLight([device.id], { duration: 10000, startBeforeAlarm: 0 })}>
+                    <Text style={styles.buttonText}>Test Wake-up (10s)</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>
