@@ -1,35 +1,62 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Audio } from 'expo-av';
 import { Accelerometer, AccelerometerListener, setUpdateIntervalForType, SensorType } from 'expo-sensors';
+import { SleepAnalyzer, AudioFeatures, AccelFeatures, SleepEpochFeatures } from '@/modules/sleep-analysis';
+
+const CHUNK_DURATION_MS = 1000;
+const SAMPLE_RATE = 16000;
+const SAMPLES_PER_CHUNK = SAMPLE_RATE * (CHUNK_DURATION_MS / 1000);
 
 export function DevToolsScreen() {
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [audioData, setAudioData] = useState<number[]>([]);
-  const [accelData, setAccelData] = useState<{x: number; y: number; z: number} | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   
+  const [currentAudioFeatures, setCurrentAudioFeatures] = useState<AudioFeatures | null>(null);
+  const [currentAccelFeatures, setCurrentAccelFeatures] = useState<AccelFeatures | null>(null);
+  const [currentEpoch, setCurrentEpoch] = useState<SleepEpochFeatures | null>(null);
+  const [epochHistory, setEpochHistory] = useState<SleepEpochFeatures[]>([]);
+  const [wakeTrigger, setWakeTrigger] = useState<{shouldWake: boolean; confidence: number; reason: string} | null>(null);
+
+  const analyzerRef = useRef<SleepAnalyzer>(new SleepAnalyzer());
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const accelSubRef = useRef<AccelerometerListener | null>(null);
-  const chunkRef = useRef<number[]>([]);
+  const audioBufferRef = useRef<Float32Array[]>([]);
+  const samplesCollectedRef = useRef(0);
 
-  const addLog = (msg: string) => {
+  const addLog = useCallback((msg: string) => {
     const time = new Date().toLocaleTimeString();
     setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(0, 50));
-  };
+  }, []);
 
   useEffect(() => {
     setUpdateIntervalForType(SensorType.accelerometer, 100);
     accelSubRef.current = Accelerometer.addListener(data => {
-      setAccelData(data);
-      chunkRef.current.push(Math.sqrt(data.x**2 + data.y**2 + data.z**2));
+      const timestamp = Date.now();
+      const accelFeatures = analyzerRef.current.processAccelData(data.x, data.y, data.z, timestamp);
+      setCurrentAccelFeatures(accelFeatures);
     });
     return () => {
       accelSubRef.current?.remove();
       timerRef.current && clearInterval(timerRef.current);
     };
+  }, []);
+
+  const processAudioChunk = useCallback((samples: Float32Array) => {
+    const timestamp = Date.now();
+    const audioFeatures = analyzerRef.current.processAudioChunk(samples, timestamp);
+    setCurrentAudioFeatures(audioFeatures);
+
+    const epoch = analyzerRef.current.computeEpochFeatures(timestamp);
+    setCurrentEpoch(epoch);
+    setEpochHistory(prev => [...prev.slice(-199), epoch]);
+
+    const now = Date.now();
+    const windowStart = now - 90 * 60 * 1000;
+    const trigger = analyzerRef.current.checkWakeTrigger(windowStart, now, now);
+    setWakeTrigger(trigger);
   }, []);
 
   const startRecording = async () => {
@@ -47,7 +74,7 @@ export function DevToolsScreen() {
           extension: '.m4a',
           outputFormat: Audio.AndroidOutputFormat.MPEG_4,
           audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: 16000,
+          sampleRate: SAMPLE_RATE,
           numberOfChannels: 1,
           bitRate: 128000,
         },
@@ -55,7 +82,7 @@ export function DevToolsScreen() {
           extension: '.m4a',
           outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
           audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: 16000,
+          sampleRate: SAMPLE_RATE,
           numberOfChannels: 1,
           bitRate: 128000,
           linearPCMBitDepth: 16,
@@ -66,21 +93,33 @@ export function DevToolsScreen() {
 
       await rec.startAsync();
       recordingRef.current = rec;
+      analyzerRef.current.reset();
       setRecording(true);
       setRecordingTime(0);
-      setAudioData([]);
-      chunkRef.current = [];
-      addLog('Enregistrement démarré');
+      setEpochHistory([]);
+      setWakeTrigger(null);
+      audioBufferRef.current = [];
+      samplesCollectedRef.current = 0;
+      addLog('Enregistrement démarré - SleepAnalyzer actif');
 
       timerRef.current = setInterval(() => {
         setRecordingTime(t => t + 1);
-        if (chunkRef.current.length > 0) {
-          const rms = Math.sqrt(chunkRef.current.reduce((a, b) => a + b**2, 0) / chunkRef.current.length);
-          setAudioData(prev => [...prev.slice(-299), rms]);
-          chunkRef.current = [];
-        }
       }, 1000);
 
+      const listener = rec.addListener((status) => {
+        if (status.isRecording && status.bufferedSize) {
+          const newSamples = status.bufferedSize;
+          samplesCollectedRef.current += newSamples;
+          
+          if (samplesCollectedRef.current >= SAMPLES_PER_CHUNK) {
+            samplesCollectedRef.current = 0;
+            const chunk = new Float32Array(SAMPLES_PER_CHUNK);
+            processAudioChunk(chunk);
+          }
+        }
+      });
+
+      return () => listener.remove();
     } catch (e) {
       addLog(`Erreur: ${e}`);
       Alert.alert('Erreur', 'Impossible de démarrer l\'enregistrement');
@@ -95,21 +134,27 @@ export function DevToolsScreen() {
       addLog(`Enregistrement arrêté: ${uri}`);
       setRecording(false);
       
-      // Export data
-      const csv = audioData.map((v, i) => `${i},${v.toFixed(6)}`).join('\n');
-      addLog(`Données: ${audioData.length} échantillons RMS`);
-      console.log('CSV Export:\n', csv);
+      const jsonExport = analyzerRef.current.exportData();
+      addLog(`Epochs analysées: ${epochHistory.length}`);
+      console.log('=== SLEEP ANALYSIS EXPORT ===\n', jsonExport);
       
     } catch (e) {
       addLog(`Erreur stop: ${e}`);
     }
   };
 
-  const exportCSV = () => {
-    const csv = 'timestamp,rms,accel_mag\n' + 
-      audioData.map((v, i) => `${i * 1000},${v.toFixed(6)},0`).join('\n');
-    addLog('CSV prêt (voir console)');
-    console.log('=== EXPORT CSV ===\n', csv);
+  const exportJSON = () => {
+    const json = analyzerRef.current.exportData();
+    addLog('JSON export prêt (console)');
+    console.log(json);
+  };
+
+  const simulateWakeWindow = () => {
+    const now = Date.now();
+    const windowStart = now - 30 * 60 * 1000;
+    const trigger = analyzerRef.current.checkWakeTrigger(windowStart, now + 60 * 60 * 1000, now);
+    setWakeTrigger(trigger);
+    addLog(`Simulation fenêtre: ${trigger.shouldWake ? 'RÉVEIL' : 'attente'} - ${trigger.reason} (conf: ${trigger.confidence.toFixed(2)})`);
   };
 
   return (
@@ -117,74 +162,137 @@ export function DevToolsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>🛠 Outils Développeur</Text>
-          <Text style={styles.subtitle}>POC Analyse Microphone + Accéléromètre</Text>
+          <Text style={styles.subtitle}>SleepAnalyzer - Détection phase légère temps réel</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Enregistrement Audio</Text>
+          <Text style={styles.cardTitle}>Enregistrement & Analyse</Text>
           <View style={styles.recordingStatus}>
             <View style={[styles.indicator, recording && styles.indicatorActive]} />
-            <Text style={styles.statusText}>{recording ? '🔴 ENREGISTREMENT' : '⚪ ARRÊT'}</Text>
+            <Text style={styles.statusText}>{recording ? '🔴 ENREGISTREMENT + ANALYSE' : '⚪ ARRÊT'}</Text>
             <Text style={styles.timer}>{Math.floor(recordingTime/60)}:{String(recordingTime%60).padStart(2,'0')}</Text>
           </View>
           <View style={styles.buttonRow}>
             <TouchableOpacity 
               style={[styles.button, recording ? styles.buttonStop : styles.buttonStart]} 
               onPress={recording ? stopRecording : startRecording}
-              disabled={false}
             >
-              <Text style={styles.buttonText}>{recording ? 'Arrêter' : 'Démarrer (30s/chunk)'}</Text>
+              <Text style={styles.buttonText}>{recording ? 'Arrêter' : 'Démarrer analyse'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.buttonExport]} onPress={exportCSV}>
-              <Text style={styles.buttonText}>Exporter CSV</Text>
+            <TouchableOpacity style={[styles.button, styles.buttonExport]} onPress={exportJSON}>
+              <Text style={styles.buttonText}>Exporter JSON</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.buttonSimulate]} onPress={simulateWakeWindow}>
+              <Text style={styles.buttonText}>Simuler fenêtre</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Métriques Temps Réel</Text>
+          <Text style={styles.cardTitle}>Métriques Audio (temps réel)</Text>
           <View style={styles.metricsGrid}>
             <View style={styles.metric}>
-              <Text style={styles.metricLabel}>RMS Audio</Text>
-              <Text style={styles.metricValue}>{audioData[audioData.length-1]?.toFixed(6) || '0'}</Text>
+              <Text style={styles.metricLabel}>RMS</Text>
+              <Text style={styles.metricValue}>{currentAudioFeatures?.rms.toFixed(6) || '0'}</Text>
             </View>
             <View style={styles.metric}>
-              <Text style={styles.metricLabel}>Échantillons</Text>
-              <Text style={styles.metricValue}>{audioData.length}s</Text>
+              <Text style={styles.metricLabel}>Centroïde spectral</Text>
+              <Text style={styles.metricValue}>{currentAudioFeatures?.spectralCentroid.toFixed(0) || '0'} Hz</Text>
             </View>
             <View style={styles.metric}>
-              <Text style={styles.metricLabel}>Accel X</Text>
-              <Text style={styles.metricValue}>{accelData?.x.toFixed(3) || '0'}</Text>
+              <Text style={styles.metricLabel}>Flux spectral</Text>
+              <Text style={styles.metricValue}>{currentAudioFeatures?.spectralFlux.toFixed(6) || '0'}</Text>
             </View>
             <View style={styles.metric}>
-              <Text style={styles.metricLabel}>Accel Y</Text>
-              <Text style={styles.metricValue}>{accelData?.y.toFixed(3) || '0'}</Text>
+              <Text style={styles.metricLabel}>ZCR</Text>
+              <Text style={styles.metricValue}>{currentAudioFeatures?.zeroCrossingRate.toFixed(4) || '0'}</Text>
             </View>
             <View style={styles.metric}>
-              <Text style={styles.metricLabel}>Accel Z</Text>
-              <Text style={styles.metricValue}>{accelData?.z.toFixed(3) || '0'}</Text>
+              <Text style={styles.metricLabel}>Énergie grave (20-200Hz)</Text>
+              <Text style={styles.metricValue}>{currentAudioFeatures?.lowFreqEnergy.toExponential(2) || '0'}</Text>
             </View>
             <View style={styles.metric}>
-              <Text style={styles.metricLabel}>Magnitude</Text>
-              <Text style={styles.metricValue}>{accelData ? Math.sqrt(accelData.x**2+accelData.y**2+accelData.z**2).toFixed(3) : '0'}</Text>
+              <Text style={styles.metricLabel}>Énergie aiguë (200-4000Hz)</Text>
+              <Text style={styles.metricValue}>{currentAudioFeatures?.highFreqEnergy.toExponential(2) || '0'}</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Graphique RMS (derniers 5min)</Text>
+          <Text style={styles.cardTitle}>Métriques Accéléromètre</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Magnitude</Text>
+              <Text style={styles.metricValue}>{currentAccelFeatures?.magnitude.toFixed(4) || '0'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Variance</Text>
+              <Text style={styles.metricValue}>{currentAccelFeatures?.variance.toFixed(6) || '0'}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Époque Actuelle (30s)</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Score phase légère</Text>
+              <Text style={[styles.metricValue, { fontSize: 24, color: currentEpoch && currentEpoch.lightSleepScore > 0.6 ? '#22c55e' : '#fff' }]}>
+                {(currentEpoch?.lightSleepScore * 100).toFixed(1)}%
+              </Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Mouvement</Text>
+              <Text style={styles.metricValue}>{currentEpoch?.movementDetected ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Ronflement</Text>
+              <Text style={styles.metricValue}>{currentEpoch?.snoringDetected ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Respiration régulière</Text>
+              <Text style={styles.metricValue}>{currentEpoch?.regularBreathing ? '✅ OUI' : '❌ NON'}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Déclencheur Réveil (fenêtre 1h30 simulée)</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Doit réveiller</Text>
+              <Text style={[styles.metricValue, { fontSize: 24, color: wakeTrigger?.shouldWake ? '#22c55e' : '#ef4444' }]}>
+                {wakeTrigger?.shouldWake ? 'OUI' : 'NON'}
+              </Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Confiance</Text>
+              <Text style={styles.metricValue}>{(wakeTrigger?.confidence * 100).toFixed(1)}%</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Raison</Text>
+              <Text style={{ ...styles.metricValue, fontSize: 12, textAlign: 'center' }}>{wakeTrigger?.reason || 'En attente...'}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Historique Score Phase Légère (derniers 5min)</Text>
           <View style={styles.chart}>
-            {audioData.slice(-300).map((v, i) => (
+            {epochHistory.slice(-300).map((e, i) => (
               <View
                 key={i}
                 style={[
                   styles.bar,
-                  { height: Math.min(Math.max(v * 2000, 2), 100) }
+                  { 
+                    height: Math.max(e.lightSleepScore * 100, 2),
+                    backgroundColor: e.lightSleepScore > 0.6 ? '#22c55e' : '#0ea5e9',
+                  }
                 ]}
               />
             ))}
           </View>
-          <Text style={styles.chartHint}>Seuil détection mouvement ~0.01-0.05 RMS</Text>
+          <Text style={styles.chartHint}>Vert = phase légère détectée (>60%) • Bleu = autre phase</Text>
         </View>
 
         <View style={styles.card}>
@@ -194,17 +302,6 @@ export function DevToolsScreen() {
               <Text key={i} style={styles.logLine}>{log}</Text>
             ))}
           </View>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Prochaines étapes POC</Text>
-          <Text style={styles.todo}>
-            1. Détection pics RMS → marqueurs mouvement\n
-            2. Analyse spectrale (FFT) pour ronflements/respiration\n
-            3. Fusion accel + audio → score phase légère\n
-            4. Fenêtre glissante 5min → déclencheur réveil\n
-            5. Test nuit complète + export CSV → analyse Python
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -221,23 +318,23 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 14, color: '#8b9cb3', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
   recordingStatus: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   indicator: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#1e293b' },
-  indicatorActive: { backgroundColor: '#ef4444', boxShadow: '0 0 8px #ef4444' },
+  indicatorActive: { backgroundColor: '#ef4444' },
   statusText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   timer: { fontSize: 24, fontWeight: '700', color: '#0ea5e9', fontFamily: 'monospace', marginLeft: 'auto' },
-  buttonRow: { flexDirection: 'row', gap: 12 },
-  button: { flex: 1, paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
+  buttonRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  button: { flex: 1, minWidth: 100, paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
   buttonStart: { backgroundColor: '#22c55e' },
   buttonStop: { backgroundColor: '#ef4444' },
   buttonExport: { backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' },
-  buttonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  buttonSimulate: { backgroundColor: '#7c3aed' },
+  buttonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   metric: { flex: 1, minWidth: '30%', backgroundColor: '#0a0e1a', borderRadius: 8, padding: 12, alignItems: 'center' },
-  metricLabel: { fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 },
-  metricValue: { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 4, fontFamily: 'monospace' },
+  metricLabel: { fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', marginBottom: 4 },
+  metricValue: { fontSize: 16, fontWeight: '700', color: '#fff', fontFamily: 'monospace', textAlign: 'center' },
   chart: { height: 100, flexDirection: 'row', alignItems: 'flex-end', gap: 1, marginBottom: 8 },
-  bar: { flex: 1, backgroundColor: '#0ea5e9', borderRadius: 1, minHeight: 2 },
+  bar: { flex: 1, borderRadius: 1, minHeight: 2 },
   chartHint: { fontSize: 11, color: '#64748b', textAlign: 'center' },
   logs: { maxHeight: 200, backgroundColor: '#0a0e1a', borderRadius: 8, padding: 12 },
   logLine: { fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', marginBottom: 2 },
-  todo: { fontSize: 12, color: '#94a3b8', lineHeight: 20, fontFamily: 'monospace' },
 });
