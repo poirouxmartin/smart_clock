@@ -18,9 +18,7 @@
       "bundleIdentifier": "com.poirouxmartin.smartclock",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Smart Clock a besoin d'accéder au microphone pour analyser votre sommeil via les sons nocturnes.",
-        "UIBackgroundModes": ["audio", "background-processing"],
-        "NSBluetoothAlwaysUsageDescription": "Pour contrôler les ampoules connectées (Philips Hue, Yeelight, etc.)",
-        "NSBluetoothPeripheralUsageDescription": "Pour contrôler les ampoules connectées"
+        "UIBackgroundModes": ["audio", "background-processing"]
       },
       "associatedDomains": ["applinks:smartclock.app"]
     },
@@ -36,9 +34,6 @@
         "RECORD_AUDIO",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_MICROPHONE",
-        "BLUETOOTH_CONNECT",
-        "BLUETOOTH_SCAN",
-        "BLUETOOTH_ADVERTISE",
         "WAKE_LOCK",
         "USE_EXACT_ALARM",
         "SCHEDULE_EXACT_ALARM",
@@ -59,12 +54,6 @@
       "expo-notifications",
       "expo-background-task",
       [
-        "expo-bluetooth",
-        {
-          "bluetoothAlwaysPermission": "Pour contrôler les ampoules connectées"
-        }
-      ],
-      [
         "expo-build-properties",
         {
           "android": {
@@ -76,7 +65,7 @@
             "enableProguardInReleaseBuilds": true
           },
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "16.4"
           }
         }
       ]
