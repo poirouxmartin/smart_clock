@@ -1,0 +1,99 @@
+{
+  "expo": {
+    "name": "Smart Clock",
+    "slug": "smart_clock",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "smartclock",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0e1a"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.poirouxmartin.smartclock",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Smart Clock a besoin d'accéder au microphone pour analyser votre sommeil via les sons nocturnes.",
+        "UIBackgroundModes": ["audio", "background-processing"],
+        "NSBluetoothAlwaysUsageDescription": "Pour contrôler les ampoules connectées (Philips Hue, Yeelight, etc.)",
+        "NSBluetoothPeripheralUsageDescription": "Pour contrôler les ampoules connectées"
+      },
+      "associatedDomains": ["applinks:smartclock.app"]
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0e1a",
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-icon.png"
+      },
+      "package": "com.poirouxmartin.smartclock",
+      "versionCode": 1,
+      "permissions": [
+        "RECORD_AUDIO",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MICROPHONE",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_ADVERTISE",
+        "WAKE_LOCK",
+        "USE_EXACT_ALARM",
+        "SCHEDULE_EXACT_ALARM",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": { "scheme": "smartclock" },
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
+      "blockedPermissions": ["android.permission.ACCESS_FINE_LOCATION"]
+    },
+    "plugins": [
+      "expo-av",
+      "expo-notifications",
+      "expo-background-task",
+      [
+        "expo-bluetooth",
+        {
+          "bluetoothAlwaysPermission": "Pour contrôler les ampoules connectées"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "minSdkVersion": 24,
+            "buildToolsVersion": "34.0.0",
+            "kotlinVersion": "1.9.20",
+            "enableProguardInReleaseBuilds": true
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "smart_clock"
+      }
+    },
+    "owner": "poirouxmartin"
+  }
+}
