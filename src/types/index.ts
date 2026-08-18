@@ -27,6 +27,7 @@ export interface UserProfile {
   preferredWakeSounds: string[];
   preferredLightSettings: LightSettings;
   sleepHistory: SleepSession[];
+  onboardingComplete: boolean;
 }
 
 export interface LightSettings {
@@ -62,6 +63,7 @@ export interface SoundAsset {
 }
 
 export type RootStackParamList = {
+  Onboarding: undefined;
   Home: undefined;
   AlarmSetup: { alarmId?: string };
   SleepAnalysis: { sessionId?: string };

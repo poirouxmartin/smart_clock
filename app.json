@@ -57,11 +57,11 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 34,
-            "targetSdkVersion": 34,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
             "minSdkVersion": 24,
-            "buildToolsVersion": "34.0.0",
-            "kotlinVersion": "1.9.20",
+            "buildToolsVersion": "36.0.0",
+            "kotlinVersion": "2.1.20",
             "enableProguardInReleaseBuilds": true
           },
           "ios": {

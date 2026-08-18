@@ -6,6 +6,7 @@ import { SettingsScreen } from '@/screens/SettingsScreen';
 import { DevToolsScreen } from '@/dev/DevToolsScreen';
 import { CustomSoundsScreen } from '@/screens/CustomSoundsScreen';
 import { LightsScreen } from '@/screens/LightsScreen';
+import { OnboardingScreen } from '@/screens/OnboardingScreen';
 import type { RootStackParamList } from '@/types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -18,6 +19,7 @@ export function AppNavigator() {
         animation: 'fade',
       }}
     >
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="AlarmSetup" component={AlarmSetupScreen} />
       <Stack.Screen name="SleepAnalysis" component={SleepAnalysisScreen} />

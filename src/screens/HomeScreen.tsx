@@ -19,11 +19,19 @@ export function HomeScreen() {
   const [bedtime, setBedtime] = useState<{ time: string; cycles: number } | null>(null);
   const [lastNight, setLastNight] = useState<SleepSession | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
       const profileManager = getUserProfileManager();
       const profile = profileManager.getProfile();
+      
+      if (!profile?.onboardingComplete) {
+        navigation.replace('Onboarding');
+        return;
+      }
+      
+      setOnboardingDone(true);
       const bedtimeCalc = createBedtimeCalculator();
       const alarmEngine = getAlarmEngine();
 
@@ -91,6 +99,16 @@ export function HomeScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  if (!onboardingDone) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loading}>
+          <Text style={styles.loadingText}>{tCommon('loading')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const formatSleepDuration = (ms?: number) => {
     if (!ms) return '--';
@@ -227,4 +245,6 @@ const styles = StyleSheet.create({
   devButtonText: { color: '#64748b', fontSize: 13 },
   settingsButton: { position: 'absolute', bottom: 30, alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 12 },
   settingsButtonText: { color: '#64748b', fontSize: 14 },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: '#8b9cb3', fontSize: 16 },
 });

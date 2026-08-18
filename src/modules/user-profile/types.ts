@@ -49,6 +49,9 @@ export interface UserProfile {
   dataRetentionDays: number;
   analyticsEnabled: boolean;
   crashReportingEnabled: boolean;
+  
+  // Onboarding
+  onboardingComplete: boolean;
 }
 
 export interface WakeUpLightConfig {
@@ -152,6 +155,7 @@ export const DEFAULT_USER_PROFILE: Omit<UserProfile, 'id' | 'createdAt' | 'updat
   dataRetentionDays: 365,
   analyticsEnabled: true,
   crashReportingEnabled: true,
+  onboardingComplete: false,
 };
 
 export const DB_SCHEMA = `
