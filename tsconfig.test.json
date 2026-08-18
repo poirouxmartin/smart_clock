@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2020",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@/*": ["<rootDir>/src/*"],
+      "@components/*": ["<rootDir>/src/components/*"],
+      "@screens/*": ["<rootDir>/src/screens/*"],
+      "@navigation/*": ["<rootDir>/src/navigation/*"],
+      "@hooks/*": ["<rootDir>/src/hooks/*"],
+      "@utils/*": ["<rootDir>/src/utils/*"],
+      "@constants/*": ["<rootDir>/src/constants/*"],
+      "@types/*": ["<rootDir>/src/types/*"],
+      "@assets/*": ["<rootDir>/src/assets/*"],
+      "@dev/*": ["<rootDir>/src/dev/*"],
+      "@modules/*": ["<rootDir>/src/modules/*"]
+    }
+  },
+  "include": ["**/__tests__/**/*.ts", "**/__tests__/**/*.tsx"],
+  "exclude": ["node_modules"]
+}

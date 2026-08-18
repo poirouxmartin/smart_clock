@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../../src/*"],
+      "@components/*": ["../../src/components/*"],
+      "@screens/*": ["../../src/screens/*"],
+      "@navigation/*": ["../../src/navigation/*"],
+      "@hooks/*": ["../../src/hooks/*"],
+      "@utils/*": ["../../src/utils/*"],
+      "@constants/*": ["../../src/constants/*"],
+      "@types/*": ["../../src/types/*"],
+      "@assets/*": ["../../src/assets/*"],
+      "@dev/*": ["../../src/dev/*"],
+      "@modules/*": ["../../src/modules/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}
