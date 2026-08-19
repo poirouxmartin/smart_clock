@@ -13,6 +13,7 @@
       "backgroundColor": "#0a0e1a"
     },
     "assetBundlePatterns": ["**/*"],
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.poirouxmartin.smartclock",
