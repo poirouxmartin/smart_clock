@@ -1122,6 +1122,7 @@ export function DevToolsScreen() {
               <Text style={styles.metricValue}>{i18nState.locales.length}</Text>
             </View>
           </View>
+          </View>
 
           <View style={styles.buttonRow}>
             <TouchableOpacity style={[styles.button, styles.buttonSmall, styles.buttonStart]} onPress={async () => {

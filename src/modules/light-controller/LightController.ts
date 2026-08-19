@@ -1,4 +1,3 @@
-import { LightController } from './LightController';
 import { LightDevice, LightState, LightControllerConfig, DEFAULT_LIGHT_CONFIG, WakeUpLightConfig, DiscoveredDevice, LightScene } from './types';
 import { HueLightDevice, HueDiscoveryService } from './HueLightDevice';
 import { YeelightDevice, YeelightDiscoveryService } from './YeelightDevice';

@@ -66,7 +66,6 @@ export function LightsScreen() {
   const toggleDevice = useCallback(async (deviceId: string, currentState: any) => {
     const lightController = getLightController();
     await lightController.turnOn(deviceId, 1000);
-    // Note: turnOn handles both on/off based on current state
   }, []);
 
   const setBrightness = useCallback(async (deviceId: string, brightness: number) => {
@@ -112,6 +111,70 @@ export function LightsScreen() {
     );
   }
 
+  const renderDevice = (device: any) => {
+    const state = deviceStates.get(device.id) || { on: false, brightness: 0 };
+    return (
+      <View style={styles.deviceCard} key={device.id}>
+        <View style={styles.deviceHeader}>
+          <View style={styles.deviceInfo}>
+            <Text style={styles.deviceName}>{device.name}</Text>
+            <Text style={styles.deviceType}>{device.type} • {device.isConnected ? '🟢 ' + tCommon('on') : '🔴 ' + tCommon('off')}</Text>
+          </View>
+          <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => removeDevice(device.id)}>
+            <Text style={styles.actionButtonText}>🗑</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.deviceControls}>
+          <TouchableOpacity 
+            style={[styles.controlButton, state.on ? styles.controlButtonActive : '']} 
+            onPress={() => toggleDevice(device.id, state)}
+          >
+            <Text style={styles.controlButtonText}>{state.on ? '💡 ' + tLights('on') : '⭕ ' + tLights('off')}</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.sliderRow}>
+            <Text style={styles.sliderLabel}>{tLights('brightness')}</Text>
+            <View style={styles.slider}>
+              <View style={{ width: `${state.brightness}%`, height: '100%', backgroundColor: '#0ea5e9', borderRadius: 2 }} />
+            </View>
+            <Text style={styles.sliderValue}>{state.brightness}%</Text>
+          </View>
+          
+          <View style={styles.sliderRow}>
+            <Text style={styles.sliderLabel}>{tLights('colorTemperature')}</Text>
+            <TouchableOpacity style={styles.tempButton} onPress={() => setColorTemp(device.id, 3000)}>
+              <Text style={styles.tempButtonText}>3000K</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.tempButton} onPress={() => setColorTemp(device.id, 4000)}>
+              <Text style={styles.tempButtonText}>4000K</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.tempButton} onPress={() => setColorTemp(device.id, 5000)}>
+              <Text style={styles.tempButtonText}>5000K</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.tempButton} onPress={() => setColorTemp(device.id, 6500)}>
+              <Text style={styles.tempButtonText}>6500K</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity style={[styles.button, styles.buttonSecondary, styles.testButton]} onPress={() => testWakeUpLight(device.id)}>
+            <Text style={styles.buttonText}>{tLights('testWakeUpLight')} (10s)</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loading}>
+          <Text style={styles.loadingText}>{tCommon('loading')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -136,59 +199,7 @@ export function LightsScreen() {
             <Text style={styles.emptySubtext}>{tLights('discoverDevices')}</Text>
           </View>
         ) : (
-          devices.map(device => {
-            const state = deviceStates.get(device.id) || { on: false, brightness: 0 };
-            return (
-              <View key={device.id} style={styles.deviceCard}>
-                <View style={styles.deviceHeader}>
-                  <View style={styles.deviceInfo}>
-                    <Text style={styles.deviceName}>{device.name}</Text>
-                    <Text style={styles.deviceType}>{device.type} • {device.isConnected ? '🟢 ' + tCommon('on') : '🔴 ' + tCommon('off')}</Text>
-                  </View>
-                  <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => removeDevice(device.id)}>
-                    <Text style={styles.actionButtonText}>🗑</Text>
-                  </TouchableOpacity>
-                </View>
-                
-                <View style={styles.deviceControls}>
-                  <TouchableOpacity 
-                    style={[styles.controlButton, state.on ? styles.controlButtonActive : '']} 
-                    onPress={() => toggleDevice(device.id, state)}
-                  >
-                    <Text style={styles.controlButtonText}>{state.on ? '💡 ' + tLights('on') : '⭕ ' + tLights('off')}</Text>
-                  </TouchableOpacity>
-                  
-                  <View style={styles.sliderRow}>
-                    <Text style={styles.sliderLabel}>{tLights('brightness')}</Text>
-                    <View style={styles.slider}>
-                      <View style={{ width: `${state.brightness}%`, height: '100%', backgroundColor: '#0ea5e9', borderRadius: 2 }} />
-                    </View>
-                    <Text style={styles.sliderValue}>{state.brightness}%</Text>
-                  </View>
-                  
-                  <View style={styles.sliderRow}>
-                    <Text style={styles.sliderLabel}>{tLights('colorTemperature')}</Text>
-                    <TouchableOpacity style={styles.tempButton} onPress={() => setColorTemp(device.id, 3000)}>
-                      <Text style={styles.tempButtonText}>3000K</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.tempButton} onPress={() => setColorTemp(device.id, 4000)}>
-                      <Text style={styles.tempButtonText}>4000K</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.tempButton} onPress={() => setColorTemp(device.id, 5000)}>
-                      <Text style={styles.tempButtonText}>5000K</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.tempButton} onPress={() => setColorTemp(device.id, 6500)}>
-                      <Text style={styles.tempButtonText}>6500K</Text>
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <TouchableOpacity style={[styles.button, styles.buttonSecondary, styles.testButton]} onPress={() => testWakeUpLight(device.id)}>
-                    <Text style={styles.buttonText}>{tLights('testWakeUpLight')} (10s)</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            );
-          })}
+          devices.map(renderDevice)
         )}
       </ScrollView>
     </SafeAreaView>
