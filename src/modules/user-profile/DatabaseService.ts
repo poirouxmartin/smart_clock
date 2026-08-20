@@ -5,13 +5,11 @@ const DB_NAME = 'smart_clock.db';
 const CURRENT_USER_ID = 'current_user';
 
 export class DatabaseService {
-  private db: SQLiteDatabase;
+  private db: SQLiteDatabase | null = null;
   private static instance: DatabaseService;
+  private initPromise: Promise<void> | null = null;
 
-  private constructor() {
-    this.db = openDatabaseSync(DB_NAME);
-    this.initSchema();
-  }
+  private constructor() {}
 
   static getInstance(): DatabaseService {
     if (!DatabaseService.instance) {
@@ -20,14 +18,38 @@ export class DatabaseService {
     return DatabaseService.instance;
   }
 
-  private initSchema(): void {
-    this.db.execSync(DB_SCHEMA);
+  private async ensureInit(): Promise<void> {
+    if (this.db) return;
+    if (!this.initPromise) {
+      this.initPromise = this.initDatabase();
+    }
+    return this.initPromise;
+  }
+
+  private async initDatabase(): Promise<void> {
+    try {
+      this.db = openDatabaseSync(DB_NAME);
+      this.db.execSync(DB_SCHEMA);
+    } catch (error) {
+      console.error('Database initialization failed:', error);
+      this.db = null;
+      this.initPromise = null;
+      throw error;
+    }
+  }
+
+  private getDb(): SQLiteDatabase {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+    return this.db;
   }
 
   // ===== USER PROFILE =====
 
   async getProfile(): Promise<UserProfile | null> {
-    const result = this.db.getFirstSync<{ data: string }>(
+    await this.ensureInit();
+    const result = this.getDb().getFirstSync<{ data: string }>(
       'SELECT data FROM user_profile WHERE id = ?',
       [CURRENT_USER_ID]
     );
@@ -46,6 +68,7 @@ export class DatabaseService {
   }
 
   async createDefaultProfile(): Promise<UserProfile> {
+    await this.ensureInit();
     const now = Date.now();
     const profile: UserProfile = {
       id: CURRENT_USER_ID,
@@ -58,10 +81,11 @@ export class DatabaseService {
   }
 
   async saveProfile(profile: UserProfile): Promise<void> {
+    await this.ensureInit();
     const now = Date.now();
     const updatedProfile = { ...profile, updatedAt: now };
     
-    this.db.runSync(
+    this.getDb().runSync(
       `INSERT OR REPLACE INTO user_profile (id, data, created_at, updated_at) VALUES (?, ?, ?, ?)`,
       [CURRENT_USER_ID, JSON.stringify(updatedProfile), profile.createdAt, now]
     );
@@ -77,17 +101,19 @@ export class DatabaseService {
   // ===== SLEEP SESSIONS =====
 
   async saveSleepSession(session: SleepSession): Promise<void> {
+    await this.ensureInit();
     const now = Date.now();
     const sessionToSave = { ...session, updatedAt: now };
     
-    this.db.runSync(
+    this.getDb().runSync(
       `INSERT OR REPLACE INTO sleep_sessions (id, user_id, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
       [session.id, CURRENT_USER_ID, JSON.stringify(sessionToSave), session.createdAt, now]
     );
   }
 
   async getSleepSession(id: string): Promise<SleepSession | null> {
-    const result = this.db.getFirstSync<{ data: string }>(
+    await this.ensureInit();
+    const result = this.getDb().getFirstSync<{ data: string }>(
       'SELECT data FROM sleep_sessions WHERE id = ? AND user_id = ?',
       [id, CURRENT_USER_ID]
     );
@@ -98,7 +124,8 @@ export class DatabaseService {
   }
 
   async getRecentSleepSessions(limit: number = 30): Promise<SleepSession[]> {
-    const results = this.db.getAllSync<{ data: string }>(
+    await this.ensureInit();
+    const results = this.getDb().getAllSync<{ data: string }>(
       'SELECT data FROM sleep_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
       [CURRENT_USER_ID, limit]
     );
@@ -106,7 +133,8 @@ export class DatabaseService {
   }
 
   async getSleepSessionsInRange(startTime: number, endTime: number): Promise<SleepSession[]> {
-    const results = this.db.getAllSync<{ data: string }>(
+    await this.ensureInit();
+    const results = this.getDb().getAllSync<{ data: string }>(
       'SELECT data FROM sleep_sessions WHERE user_id = ? AND created_at BETWEEN ? AND ? ORDER BY created_at DESC',
       [CURRENT_USER_ID, startTime, endTime]
     );
@@ -114,14 +142,16 @@ export class DatabaseService {
   }
 
   async deleteSleepSession(id: string): Promise<void> {
-    this.db.runSync(
+    await this.ensureInit();
+    this.getDb().runSync(
       'DELETE FROM sleep_sessions WHERE id = ? AND user_id = ?',
       [id, CURRENT_USER_ID]
     );
   }
 
   async deleteOldSessions(olderThan: number): Promise<number> {
-    const result = this.db.runSync(
+    await this.ensureInit();
+    const result = this.getDb().runSync(
       'DELETE FROM sleep_sessions WHERE user_id = ? AND created_at < ?',
       [CURRENT_USER_ID, olderThan]
     );
@@ -131,7 +161,8 @@ export class DatabaseService {
   // ===== ADAPTIVE LEARNING =====
 
   async getAdaptiveLearning(): Promise<AdaptiveLearningData | null> {
-    const result = this.db.getFirstSync<{ data: string }>(
+    await this.ensureInit();
+    const result = this.getDb().getFirstSync<{ data: string }>(
       'SELECT data FROM adaptive_learning WHERE user_id = ?',
       [CURRENT_USER_ID]
     );
@@ -142,7 +173,8 @@ export class DatabaseService {
   }
 
   async saveAdaptiveLearning(data: AdaptiveLearningData): Promise<void> {
-    this.db.runSync(
+    await this.ensureInit();
+    this.getDb().runSync(
       `INSERT OR REPLACE INTO adaptive_learning (user_id, data, updated_at) VALUES (?, ?, ?)`,
       [CURRENT_USER_ID, JSON.stringify(data), Date.now()]
     );
@@ -249,7 +281,8 @@ export class DatabaseService {
   // ===== APP SETTINGS =====
 
   async getSetting<T>(key: string, defaultValue: T): Promise<T> {
-    const result = this.db.getFirstSync<{ value: string }>(
+    await this.ensureInit();
+    const result = this.getDb().getFirstSync<{ value: string }>(
       'SELECT value FROM app_settings WHERE key = ?',
       [key]
     );
@@ -264,7 +297,8 @@ export class DatabaseService {
   }
 
   async setSetting<T>(key: string, value: T): Promise<void> {
-    this.db.runSync(
+    await this.ensureInit();
+    this.getDb().runSync(
       `INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)`,
       [key, JSON.stringify(value), Date.now()]
     );
@@ -305,19 +339,22 @@ export class DatabaseService {
   }
 
   async clearAllData(): Promise<void> {
-    this.db.runSync('DELETE FROM sleep_sessions WHERE user_id = ?', [CURRENT_USER_ID]);
-    this.db.runSync('DELETE FROM adaptive_learning WHERE user_id = ?', [CURRENT_USER_ID]);
-    this.db.runSync('DELETE FROM user_profile WHERE id = ?', [CURRENT_USER_ID]);
+    await this.ensureInit();
+    this.getDb().runSync('DELETE FROM sleep_sessions WHERE user_id = ?', [CURRENT_USER_ID]);
+    this.getDb().runSync('DELETE FROM adaptive_learning WHERE user_id = ?', [CURRENT_USER_ID]);
+    this.getDb().runSync('DELETE FROM user_profile WHERE id = ?', [CURRENT_USER_ID]);
   }
 
   // ===== UTILITIES =====
 
   async vacuum(): Promise<void> {
-    this.db.execSync('VACUUM');
+    await this.ensureInit();
+    this.getDb().execSync('VACUUM');
   }
 
   async getDbSize(): Promise<number> {
-    const result = this.db.getFirstSync<{ size: number }>(
+    await this.ensureInit();
+    const result = this.getDb().getFirstSync<{ size: number }>(
       "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"
     );
     return result?.size || 0;
