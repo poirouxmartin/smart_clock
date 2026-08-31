@@ -1,10 +1,10 @@
-import { Audio, AudioSound } from 'expo-av';
+import { Audio, AudioPlayer } from 'expo-audio';
 import { SoundAsset, PlaybackConfig, PlaybackState, PlaybackStatus, SoundManagerConfig, DEFAULT_SOUND_CONFIG } from './types';
 
 type StatusCallback = (status: PlaybackStatus) => void;
 
 export class SoundPlayer {
-  private sound: AudioSound | null = null;
+  private player: AudioPlayer | null = null;
   private currentConfig: PlaybackConfig | null = null;
   private config: SoundManagerConfig;
   private state: PlaybackState = 'idle';
@@ -13,6 +13,7 @@ export class SoundPlayer {
   private positionInterval: NodeJS.Timeout | null = null;
   private targetVolume = 0;
   private isMounted = true;
+  private playerListener: { remove: () => void } | null = null;
 
   constructor(config: Partial<SoundManagerConfig> = {}) {
     this.config = { ...DEFAULT_SOUND_CONFIG, ...config };
@@ -37,7 +38,7 @@ export class SoundPlayer {
   }
 
   async loadSound(asset: SoundAsset): Promise<void> {
-    if (this.sound) {
+    if (this.player) {
       await this.unload();
     }
 
@@ -45,13 +46,15 @@ export class SoundPlayer {
     this.emitStatus();
 
     try {
-      const { sound } = await Audio.Sound.createAsync(
+      this.player = Audio.createAudioPlayer(
         { uri: asset.uri },
-        { shouldPlay: false, isLooping: asset.loopable, volume: 0 },
-        this.onPlaybackStatusUpdate.bind(this)
+        { downloadFirst: false }
       );
-      
-      this.sound = sound;
+
+      this.playerListener = this.player.addListener('playbackStatusUpdate', (status) => {
+        this.onPlaybackStatusUpdate(status);
+      });
+
       this.state = 'idle';
       this.emitStatus({ duration: asset.duration });
     } catch (error) {
@@ -61,11 +64,11 @@ export class SoundPlayer {
     }
   }
 
-  private onPlaybackStatusUpdate(status: Audio.AudioStatus): void {
+  private onPlaybackStatusUpdate(status: any): void {
     if (!this.isMounted || !this.currentConfig) return;
 
     if (status.isLoaded) {
-      const newState: PlaybackState = status.isPlaying ? 'playing' : 
+      const newState: PlaybackState = status.playing ? 'playing' : 
         status.isBuffering ? 'loading' : 'paused';
       
       if (newState !== this.state) {
@@ -73,10 +76,10 @@ export class SoundPlayer {
       }
 
       this.emitStatus({
-        position: status.positionMillis,
-        duration: status.durationMillis,
-        volume: status.volume,
-        isLooping: status.isLooping,
+        position: (status.currentTime || 0) * 1000,
+        duration: (status.duration || 0) * 1000,
+        volume: status.volume ?? this.targetVolume,
+        isLooping: this.player?.loop ?? false,
       });
     } else if (status.error) {
       this.state = 'error';
@@ -85,21 +88,21 @@ export class SoundPlayer {
   }
 
   async play(config: PlaybackConfig): Promise<void> {
-    if (!this.sound) {
+    if (!this.player) {
       throw new Error('Aucun son chargé');
     }
 
     this.currentConfig = { ...config };
     this.targetVolume = Math.min(config.volume, this.config.maxVolume);
     
-    await this.sound.setLoopingAsync(config.loop);
-    await this.sound.setPositionAsync(config.startTime || 0);
+    this.player.loop = config.loop;
+    await this.player.seekTo((config.startTime || 0) / 1000);
     
     this.state = 'fading_in';
     this.emitStatus();
 
-    await this.sound.setVolumeAsync(0);
-    await this.sound.playAsync();
+    this.player.volume = 0;
+    this.player.play();
     
     this.startFadeIn(this.config.fadeInDuration);
     this.startPositionTracking();
@@ -111,11 +114,11 @@ export class SoundPlayer {
     const volumeStep = this.targetVolume / steps;
     let currentStep = 0;
 
-    this.fadeInterval = setInterval(async () => {
-      if (!this.isMounted || !this.sound || currentStep >= steps) {
+    this.fadeInterval = setInterval(() => {
+      if (!this.isMounted || !this.player || currentStep >= steps) {
         this.stopFadeInterval();
-        if (this.isMounted && this.sound) {
-          await this.sound.setVolumeAsync(this.targetVolume);
+        if (this.isMounted && this.player) {
+          this.player.volume = this.targetVolume;
           this.state = 'playing';
           this.emitStatus();
         }
@@ -124,12 +127,12 @@ export class SoundPlayer {
 
       currentStep++;
       const newVolume = Math.min(volumeStep * currentStep, this.targetVolume);
-      await this.sound.setVolumeAsync(newVolume);
+      this.player!.volume = newVolume;
     }, stepDuration);
   }
 
   private startFadeOut(duration: number): void {
-    if (!this.sound) return;
+    if (!this.player) return;
 
     this.state = 'fading_out';
     this.emitStatus();
@@ -140,16 +143,16 @@ export class SoundPlayer {
     const volumeStep = startVolume / steps;
     let currentStep = 0;
 
-    this.fadeInterval = setInterval(async () => {
-      if (!this.isMounted || !this.sound || currentStep >= steps) {
+    this.fadeInterval = setInterval(() => {
+      if (!this.isMounted || !this.player || currentStep >= steps) {
         this.stopFadeInterval();
-        await this.stop();
+        this.stop();
         return;
       }
 
       currentStep++;
       const newVolume = Math.max(startVolume - volumeStep * currentStep, 0);
-      await this.sound.setVolumeAsync(newVolume);
+      this.player!.volume = newVolume;
     }, stepDuration);
   }
 
@@ -162,15 +165,11 @@ export class SoundPlayer {
 
   private startPositionTracking(): void {
     this.positionInterval = setInterval(() => {
-      if (this.sound && this.isMounted) {
-        this.sound.getStatusAsync().then(status => {
-          if (status.isLoaded && this.isMounted) {
-            this.emitStatus({
-              position: status.positionMillis,
-              duration: status.durationMillis,
-            });
-          }
-        }).catch(() => {});
+      if (this.player && this.isMounted) {
+        this.emitStatus({
+          position: (this.player.currentTime || 0) * 1000,
+          duration: (this.player.duration || 0) * 1000,
+        });
       }
     }, 500);
   }
@@ -182,43 +181,48 @@ export class SoundPlayer {
     }
   }
 
-  async pause(): Promise<void> {
-    if (!this.sound) return;
-    await this.sound.pauseAsync();
+  pause(): void {
+    if (!this.player) return;
+    this.player.pause();
     this.state = 'paused';
     this.emitStatus();
   }
 
-  async resume(): Promise<void> {
-    if (!this.sound) return;
-    await this.sound.playAsync();
+  resume(): void {
+    if (!this.player) return;
+    this.player.play();
     this.state = 'playing';
     this.emitStatus();
   }
 
   async stop(fadeOut = true): Promise<void> {
-    if (!this.sound) return;
+    if (!this.player) return;
 
     this.stopPositionTracking();
 
     if (fadeOut && this.state === 'playing') {
-      await this.startFadeOut(this.config.fadeOutDuration);
+      this.startFadeOut(this.config.fadeOutDuration);
       return;
     }
 
-    await this.sound.stopAsync();
-    await this.unload();
+    this.player.pause();
+    this.unload();
   }
 
-  private async unload(): Promise<void> {
+  private unload(): void {
     this.stopFadeInterval();
     this.stopPositionTracking();
     
-    if (this.sound) {
+    if (this.playerListener) {
+      this.playerListener.remove();
+      this.playerListener = null;
+    }
+
+    if (this.player) {
       try {
-        await this.sound.unloadAsync();
+        this.player.remove();
       } catch {}
-      this.sound = null;
+      this.player = null;
     }
     
     this.currentConfig = null;
@@ -227,10 +231,10 @@ export class SoundPlayer {
   }
 
   async setVolume(volume: number): Promise<void> {
-    if (!this.sound) return;
+    if (!this.player) return;
     const clamped = Math.max(0, Math.min(volume, this.config.maxVolume));
     this.targetVolume = clamped;
-    await this.sound.setVolumeAsync(clamped);
+    this.player.volume = clamped;
     this.emitStatus({ volume: clamped });
   }
 
@@ -250,9 +254,13 @@ export class SoundPlayer {
     this.isMounted = false;
     this.stopFadeInterval();
     this.stopPositionTracking();
-    if (this.sound) {
-      this.sound.unloadAsync().catch(() => {});
-      this.sound = null;
+    if (this.playerListener) {
+      this.playerListener.remove();
+      this.playerListener = null;
+    }
+    if (this.player) {
+      this.player.remove();
+      this.player = null;
     }
   }
 }

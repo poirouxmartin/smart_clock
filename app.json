@@ -51,7 +51,14 @@
       "blockedPermissions": ["android.permission.ACCESS_FINE_LOCATION"]
     },
     "plugins": [
-      "expo-av",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Smart Clock a besoin d'accéder au microphone pour analyser votre sommeil via les sons nocturnes.",
+          "enableBackgroundPlayback": true,
+          "enableBackgroundRecording": true
+        }
+      ],
       "expo-notifications",
       "expo-background-task",
       [

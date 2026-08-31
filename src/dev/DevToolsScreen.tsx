@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Audio } from 'expo-av';
+import { Audio, useAudioRecorder, RecordingPresets, setAudioModeAsync, AudioModule, requestRecordingPermissionsAsync } from 'expo-audio';
 import { Accelerometer, AccelerometerListener, setUpdateIntervalForType, SensorType } from 'expo-sensors';
 import { SleepAnalyzer, AudioFeatures, AccelFeatures, SleepEpochFeatures } from '@/modules/sleep-analysis';
 import { AlarmEngine, createAlarmEngine, ActiveAlarm, AlarmConfig } from '@/modules/alarm-engine';
@@ -79,7 +79,32 @@ export function DevToolsScreen() {
   const engineRef = useRef<AlarmEngine | null>(null);
   const soundManagerRef = useRef<SoundManager | null>(null);
   const lightControllerRef = useRef<LightController | null>(null);
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  const recordingRef = useRef<any | null>(null);
+  const recorderHook = useAudioRecorder(
+    {
+      extension: '.m4a',
+      sampleRate: SAMPLE_RATE,
+      numberOfChannels: 1,
+      bitRate: 128000,
+      android: {
+        outputFormat: 'mpeg4',
+        audioEncoder: 'aac',
+      },
+      ios: {
+        outputFormat: 'm4a',
+        audioQuality: 'max',
+        linearPCMBitDepth: 16,
+        linearPCMIsBigEndian: false,
+        linearPCMIsFloat: false,
+      },
+    },
+    (status) => {
+      if (status.isRecording && status.durationMillis) {
+        const elapsed = Math.floor(status.durationMillis / 1000);
+        setRecordingTime(elapsed);
+      }
+    }
+  );
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const accelSubRef = useRef<AccelerometerListener | null>(null);
   const audioBufferRef = useRef<Float32Array[]>([]);
@@ -290,38 +315,20 @@ export function DevToolsScreen() {
 
   const startRecording = async () => {
     try {
-      await Audio.requestPermissionsAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) {
+        Alert.alert('Erreur', 'Permission microphone refusée');
+        return;
+      }
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
       });
 
-      const rec = new Audio.Recording();
-      await rec.prepareToRecordAsync({
-        android: {
-          extension: '.m4a',
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: SAMPLE_RATE,
-          numberOfChannels: 1,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: '.m4a',
-          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: SAMPLE_RATE,
-          numberOfChannels: 1,
-          bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-      });
-
-      await rec.startAsync();
-      recordingRef.current = rec;
+      await recorderHook.prepareToRecordAsync();
+      recorderHook.record();
+      recordingRef.current = recorderHook;
       analyzerRef.current.reset();
       setRecording(true);
       setRecordingTime(0);
@@ -335,20 +342,23 @@ export function DevToolsScreen() {
         setRecordingTime(t => t + 1);
       }, 1000);
 
-      const listener = rec.addListener((status) => {
-        if (status.isRecording && status.bufferedSize) {
-          const newSamples = status.bufferedSize;
-          samplesCollectedRef.current += newSamples;
-          
-          if (samplesCollectedRef.current >= SAMPLES_PER_CHUNK) {
-            samplesCollectedRef.current = 0;
-            const chunk = new Float32Array(SAMPLES_PER_CHUNK);
-            processAudioChunk(chunk);
-          }
+      const pollInterval = setInterval(() => {
+        if (!recorderHook.isRecording) {
+          clearInterval(pollInterval);
+          return;
         }
-      });
+        const elapsed = recorderHook.currentTime;
+        const newSamples = Math.floor(elapsed * SAMPLE_RATE);
+        if (newSamples > samplesCollectedRef.current) {
+          const chunk = new Float32Array(SAMPLES_PER_CHUNK);
+          processAudioChunk(chunk);
+          samplesCollectedRef.current = 0;
+        }
+      }, CHUNK_DURATION_MS);
 
-      return () => listener.remove();
+      return () => {
+        clearInterval(pollInterval);
+      };
     } catch (e) {
       addLog(`Erreur: ${e}`);
       Alert.alert('Erreur', 'Impossible de démarrer l\'enregistrement');
@@ -356,10 +366,11 @@ export function DevToolsScreen() {
   };
 
   const stopRecording = async () => {
-    if (!recordingRef.current) return;
+    if (!recorderHook.isRecording) return;
     try {
       timerRef.current && clearInterval(timerRef.current);
-      const uri = await recordingRef.current.stopAndUnloadAsync();
+      await recorderHook.stop();
+      const uri = recorderHook.uri;
       addLog(`Enregistrement arrêté: ${uri}`);
       setRecording(false);
       

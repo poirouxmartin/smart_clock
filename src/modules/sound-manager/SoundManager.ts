@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { Audio } from 'expo-audio';
 import { SoundPlayer, createSoundPlayer } from './SoundPlayer';
 import {
   SoundAsset,
@@ -39,13 +39,10 @@ export class SoundManager {
 
     try {
       await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        interruptionModeIOS: Audio.InterruptionModeIOS.DoNotMix,
-        shouldDuckAndroid: this.config.duckOthers,
-        interruptionModeAndroid: Audio.InterruptionModeAndroid.DoNotMix,
-        playThroughEarpieceAndroid: false,
+        allowsRecording: false,
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'doNotMix',
       });
       this.initialized = true;
     } catch (error) {
@@ -105,11 +102,11 @@ export class SoundManager {
   }
 
   async pause(): Promise<void> {
-    await this.player.pause();
+    this.player.pause();
   }
 
   async resume(): Promise<void> {
-    await this.player.resume();
+    this.player.resume();
   }
 
   async stop(fadeOut = true): Promise<void> {
@@ -145,7 +142,7 @@ export class SoundManager {
     if (!asset) return;
 
     try {
-      await Audio.Sound.createAsync({ uri: asset.uri }, { shouldPlay: false });
+      await Audio.preload({ uri: asset.uri });
     } catch (error) {
       console.warn(`[SoundManager] Failed to preload ${soundId}:`, error);
     }

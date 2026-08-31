@@ -6,7 +6,7 @@ module.exports = {
     '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.test.json' }],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|expo|@expo|@react-navigation|@expo/vector-icons|@expo/metro-config|expo-modules-core|expo-av|expo-notifications|expo-background-task|expo-bluetooth|expo-device|expo-constants|expo-file-system|expo-sqlite|expo-localization|expo-sensors|expo-build-properties|expo-document-picker|expo-av|expo-router)/)'
+    'node_modules/(?!(react-native|@react-native|expo|@expo|@react-navigation|@expo/vector-icons|@expo/metro-config|expo-modules-core|expo-audio|expo-notifications|expo-background-task|expo-bluetooth|expo-device|expo-constants|expo-file-system|expo-sqlite|expo-localization|expo-sensors|expo-build-properties|expo-document-picker|expo-router)/)'
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
