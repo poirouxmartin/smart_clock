@@ -33,9 +33,16 @@ yarn-error.*
 # local env files
 .env*.local
 
+# local build log
+build.log
+
 # typescript
 *.tsbuildinfo
 
 # generated native folders
 /ios
-/android
+# /android is committed (release signing config lives in android/app/build.gradle)
+# release keystore + passwords are NEVER committed:
+*.keystore
+*.jks
+keystore.properties

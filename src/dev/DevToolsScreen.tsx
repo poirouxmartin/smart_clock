@@ -573,7 +573,7 @@ export function DevToolsScreen() {
               />
             ))}
           </View>
-          <Text style={styles.chartHint}>Vert = phase légère détectée (>60%) • Bleu = autre phase</Text>
+          <Text style={styles.chartHint}>Vert = phase légère détectée ({'>'}60%) • Bleu = autre phase</Text>
         </View>
 
         <View style={styles.card}>

@@ -19,7 +19,6 @@
     "expo-linking": "^57.0.6",
     "expo-localization": "^57.0.1",
     "expo-notifications": "~57.0.12",
-    "expo-router": "^57.0.14",
     "expo-sensors": "^57.0.2",
     "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
@@ -36,7 +35,6 @@
   "devDependencies": {
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
     "@babel/plugin-proposal-optional-chaining": "^7.21.0",
-    "@babel/plugin-transform-optional-chaining": "^8.0.1",
     "@react-native/jest-preset": "^0.87.0",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-hooks": "^8.0.1",
