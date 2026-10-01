@@ -238,3 +238,12 @@ export class AlarmEngine {
 export function createAlarmEngine(config?: Partial<AlarmEngineConfig>): AlarmEngine {
   return new AlarmEngine(config);
 }
+
+let alarmEngineInstance: AlarmEngine | null = null;
+
+export function getAlarmEngine(): AlarmEngine {
+  if (!alarmEngineInstance) {
+    alarmEngineInstance = new AlarmEngine();
+  }
+  return alarmEngineInstance;
+}

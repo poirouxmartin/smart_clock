@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Platform, PermissionsAndroid } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, PermissionsAndroid } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useI18n } from '@/modules/i18n';
 import { getUserProfileManager } from '@/modules/user-profile';
@@ -12,53 +13,72 @@ type OnboardingStep = 'welcome' | 'permissions' | 'profile';
 const CHRONOTYPE_QUESTIONS = [
   {
     id: 'wake_preference',
-    question: 'onboarding.chronotype.wakePreference',
+    question: 'wakePreference',
     options: [
-      { label: 'onboarding.chronotype.before6am', value: -2 },
-      { label: 'onboarding.chronotype.between6and7', value: -1 },
-      { label: 'onboarding.chronotype.between7and8', value: 0 },
-      { label: 'onboarding.chronotype.between8and9', value: 1 },
-      { label: 'onboarding.chronotype.after9am', value: 2 },
+      { label: 'before6am', value: -2 },
+      { label: 'between6and7', value: -1 },
+      { label: 'between7and8', value: 0 },
+      { label: 'between8and9', value: 1 },
+      { label: 'after9am', value: 2 },
     ],
   },
   {
     id: 'sleep_preference',
-    question: 'onboarding.chronotype.sleepPreference',
+    question: 'sleepPreference',
     options: [
-      { label: 'onboarding.chronotype.before10pm', value: -2 },
-      { label: 'onboarding.chronotype.between10and11', value: -1 },
-      { label: 'onboarding.chronotype.between11and12', value: 0 },
-      { label: 'onboarding.chronotype.between12and1', value: 1 },
-      { label: 'onboarding.chronotype.after1am', value: 2 },
+      { label: 'before10pm', value: -2 },
+      { label: 'between10and11', value: -1 },
+      { label: 'between11and12', value: 0 },
+      { label: 'between12and1', value: 1 },
+      { label: 'after1am', value: 2 },
     ],
   },
   {
     id: 'energy_morning',
-    question: 'onboarding.chronotype.energyMorning',
+    question: 'energyMorning',
     options: [
-      { label: 'onboarding.chronotype.veryEnergetic', value: -2 },
-      { label: 'onboarding.chronotype.energetic', value: -1 },
-      { label: 'onboarding.chronotype.average', value: 0 },
-      { label: 'onboarding.chronotype.tired', value: 1 },
-      { label: 'onboarding.chronotype.veryTired', value: 2 },
+      { label: 'veryEnergetic', value: -2 },
+      { label: 'energetic', value: -1 },
+      { label: 'average', value: 0 },
+      { label: 'tired', value: 1 },
+      { label: 'veryTired', value: 2 },
     ],
   },
   {
     id: 'energy_evening',
-    question: 'onboarding.chronotype.energyEvening',
+    question: 'energyEvening',
     options: [
-      { label: 'onboarding.chronotype.veryTired', value: -2 },
-      { label: 'onboarding.chronotype.tired', value: -1 },
-      { label: 'onboarding.chronotype.average', value: 0 },
-      { label: 'onboarding.chronotype.energetic', value: 1 },
-      { label: 'onboarding.chronotype.veryEnergetic', value: 2 },
+      { label: 'veryTired', value: -2 },
+      { label: 'tired', value: -1 },
+      { label: 'average', value: 0 },
+      { label: 'energetic', value: 1 },
+      { label: 'veryEnergetic', value: 2 },
     ],
   },
 ];
 
 export function OnboardingScreen() {
   const navigation = useNavigation();
-  const { t, tCommon, tOnboarding } = useI18n();
+  const { t, tCommon, tOnboarding, tProfile } = useI18n();
+
+  // Skip onboarding if already completed (e.g. app restart).
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const profile = getUserProfileManager().getProfile();
+        if (profile?.onboardingComplete && mounted) {
+          navigation.replace('Home');
+        } else if (mounted) {
+          const full = await getUserProfileManager().initialize();
+          if (full?.onboardingComplete && mounted) {
+            navigation.replace('Home');
+          }
+        }
+      } catch {}
+    })();
+    return () => { mounted = false; };
+  }, [navigation]);
   
   const [step, setStep] = useState<OnboardingStep>('welcome');
   const [permissions, setPermissions] = useState({
@@ -78,7 +98,7 @@ export function OnboardingScreen() {
   const requestMicrophonePermission = useCallback(async () => {
     setPermissionLoading('microphone');
     try {
-      const { status } = await PermissionsAndroid.request(
+      const status = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         {
           title: tOnboarding('allowMicrophone'),
@@ -109,29 +129,27 @@ export function OnboardingScreen() {
     }
   }, []);
 
+  // SCHEDULE_EXACT_ALARM is a special permission: it cannot be requested via
+  // a runtime dialog. Check it, otherwise send the user to Settings.
   const requestExactAlarmPermission = useCallback(async () => {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS !== 'android' || (Platform.Version as number) < 31) {
       setPermissions(prev => ({ ...prev, exactAlarms: true }));
       return;
     }
     setPermissionLoading('exactAlarms');
     try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.USE_EXACT_ALARM,
-        {
-          title: tOnboarding('allowExactAlarms'),
-          message: tOnboarding('exactAlarmsNeeded'),
-          buttonPositive: tCommon('ok'),
-          buttonNegative: tCommon('cancel'),
-        }
-      );
-      setPermissions(prev => ({ ...prev, exactAlarms: granted === PermissionsAndroid.RESULTS.GRANTED }));
+      let granted = await PermissionsAndroid.check('android.permission.SCHEDULE_EXACT_ALARM' as any);
+      if (!granted) {
+        await Linking.openSettings();
+        granted = await PermissionsAndroid.check('android.permission.SCHEDULE_EXACT_ALARM' as any);
+      }
+      setPermissions(prev => ({ ...prev, exactAlarms: granted }));
     } catch (e) {
       console.error('Exact alarm permission error:', e);
     } finally {
       setPermissionLoading(null);
     }
-  }, [tOnboarding, tCommon]);
+  }, []);
 
   const requestAllPermissions = useCallback(async () => {
     await requestMicrophonePermission();
@@ -147,7 +165,7 @@ export function OnboardingScreen() {
     else if (total >= 3) setChronotype('evening');
     else setChronotype('intermediate');
     
-    if (currentQuestion < CHRONOTYPE_QUESTIONS.length - 1) {
+    if (currentQuestion < CHRONOTYPE_QUESTIONS.length) {
       setCurrentQuestion(prev => prev + 1);
     }
   }, [chronotypeAnswers, currentQuestion]);
@@ -301,7 +319,7 @@ export function OnboardingScreen() {
       </View>
       
       <TouchableOpacity 
-        style={[styles.primaryButton, permissions.microphone && permissions.notifications && permissions.exactAlarms ? '' : styles.buttonDisabled]}
+        style={[styles.primaryButton, !(permissions.microphone && permissions.notifications && permissions.exactAlarms) && styles.buttonDisabled]}
         onPress={() => setStep('profile')}
         disabled={!(permissions.microphone && permissions.notifications && permissions.exactAlarms)}
       >
@@ -326,7 +344,7 @@ export function OnboardingScreen() {
           <Text style={styles.progressText}>{tOnboarding('question', { current: currentQuestion + 1, total: CHRONOTYPE_QUESTIONS.length })}</Text>
           
           <View style={styles.questionCard}>
-            <Text style={styles.questionText}>{t(question.question)}</Text>
+            <Text style={styles.questionText}>{tProfile(question.question)}</Text>
             <View style={styles.optionsGrid}>
               {question.options.map((opt, i) => (
                 <TouchableOpacity
@@ -337,7 +355,7 @@ export function OnboardingScreen() {
                   ]}
                   onPress={() => handleChronotypeAnswer(question.id, opt.value)}
                 >
-                  <Text style={styles.optionLabel}>{t(opt.label)}</Text>
+                  <Text style={styles.optionLabel}>{tProfile(opt.label)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -345,20 +363,20 @@ export function OnboardingScreen() {
           
           <View style={styles.questionNav}>
             <TouchableOpacity 
-              style={[styles.secondaryButton, currentQuestion === 0 && styles.buttonDisabled]}
+              style={[styles.secondaryButton, styles.questionNavButton, currentQuestion === 0 && styles.buttonDisabled]}
               onPress={goBackQuestion}
               disabled={currentQuestion === 0}
             >
               <Text style={styles.secondaryButtonText}>{tCommon('back')}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.primaryButton}
+              style={[styles.primaryButton, styles.questionNavButton]}
               onPress={() => {
                 if (currentQuestion === CHRONOTYPE_QUESTIONS.length - 1) {
-                  // Last question answered, chronotype is set
+                  setCurrentQuestion(CHRONOTYPE_QUESTIONS.length);
                 }
               }}
-              disabled={!chronotypeAnswers[question.id]}
+              disabled={chronotypeAnswers[question.id] === undefined}
             >
               <Text style={styles.primaryButtonText}>
                 {currentQuestion === CHRONOTYPE_QUESTIONS.length - 1 ? tOnboarding('seeResult') : tCommon('next')}
@@ -472,6 +490,7 @@ const styles = StyleSheet.create({
   optionLabel: { fontSize: 14, color: '#e2e8f0', textAlign: 'center' },
   
   questionNav: { flexDirection: 'row', gap: 12, marginTop: 24, width: '100%' },
+  questionNavButton: { flex: 1, width: 'auto', marginTop: 0 },
   
   chronotypeResult: { 
     alignItems: 'center', 

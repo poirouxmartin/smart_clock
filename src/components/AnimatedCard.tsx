@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, TouchableOpacityProps } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableOpacityProps, Text } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated';
 
 interface AnimatedCardProps extends Omit<TouchableOpacityProps, 'style'> {
@@ -18,7 +18,7 @@ export function AnimatedCard({
   onPress,
   ...props 
 }: AnimatedCardProps) {
-  const pressed = React.useRef(new Animated.SharedValue(false)).current;
+  const pressed = useSharedValue(false);
   
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pressed.value ? pressScale : 1 }],
@@ -83,8 +83,6 @@ export function AnimatedCardSection({
     </AnimatedCard>
   );
 }
-
-import { Text, View, StyleSheet } from 'react-native';
 
 const styles = StyleSheet.create({
   container: {

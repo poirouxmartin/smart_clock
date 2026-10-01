@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TimePickerAndroid, Platform, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TimePickerAndroid, Platform, Alert, Switch } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useI18n } from '@/modules/i18n';
 import { getAlarmEngine } from '@/modules/alarm-engine';
@@ -136,7 +137,6 @@ export function AlarmSetupScreen() {
       alarmEngine.addAlarm(alarm);
     }
 
-    Alert.alert(tCommon('save'), isEditing ? tAlarm('enabled') : tCommon('save') + ' !');
     navigation.goBack();
   }, [isEditing, route.params?.alarmId, wakeStart, wakeEnd, selectedDays, soundId, volume, lightEnabled, vibrationEnabled, snoozeEnabled, snoozeDuration, navigation, validateWindow]);
 

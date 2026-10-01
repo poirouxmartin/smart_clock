@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useI18n } from '@/modules/i18n';
 import { getUserProfileManager } from '@/modules/user-profile';
@@ -175,7 +176,7 @@ export function SettingsScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.row} onPress={() => {}}>
             <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tAlarm('wakeWindowDuration')}</Text>
+              <Text style={styles.itemLabel}>{tSettings('wakeWindowDuration')}</Text>
             </View>
             <View style={styles.rowRight}>
               <Text style={styles.itemValue}>1h30</Text>
@@ -222,7 +223,7 @@ export function SettingsScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Lights')}>
             <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tLights('lightIntegration')}</Text>
+              <Text style={styles.itemLabel}>{tSettings('lightIntegration')}</Text>
             </View>
             <View style={styles.rowRight}>
               <Text style={styles.actionText}>▶</Text>
