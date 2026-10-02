@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, PermissionsAndroid } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, PermissionsAndroid, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as IntentLauncher from 'expo-intent-launcher';
+import { applicationId } from 'expo-application';
 import { useNavigation } from '@react-navigation/native';
 import { useI18n } from '@/modules/i18n';
 import { getUserProfileManager } from '@/modules/user-profile';
 import { getNotificationService } from '@/modules/notifications';
 import { getAlarmEngine } from '@/modules/alarm-engine';
-import * as Linking from 'expo-linking';
 
 type OnboardingStep = 'welcome' | 'permissions' | 'profile';
 
@@ -130,26 +131,49 @@ export function OnboardingScreen() {
   }, []);
 
   // SCHEDULE_EXACT_ALARM is a special permission: it cannot be requested via
-  // a runtime dialog. Check it, otherwise send the user to Settings.
-  const requestExactAlarmPermission = useCallback(async () => {
+  // a runtime dialog. Open the dedicated system screen directly, then
+  // re-check when the user comes back (see AppState effect below).
+  const checkExactAlarm = useCallback(async (): Promise<boolean> => {
     if (Platform.OS !== 'android' || (Platform.Version as number) < 31) {
       setPermissions(prev => ({ ...prev, exactAlarms: true }));
-      return;
+      return true;
     }
-    setPermissionLoading('exactAlarms');
     try {
-      let granted = await PermissionsAndroid.check('android.permission.SCHEDULE_EXACT_ALARM' as any);
-      if (!granted) {
-        await Linking.openSettings();
-        granted = await PermissionsAndroid.check('android.permission.SCHEDULE_EXACT_ALARM' as any);
-      }
+      const granted = await PermissionsAndroid.check('android.permission.SCHEDULE_EXACT_ALARM' as any);
       setPermissions(prev => ({ ...prev, exactAlarms: granted }));
+      return granted;
     } catch (e) {
       console.error('Exact alarm permission error:', e);
+      return false;
+    }
+  }, []);
+
+  const requestExactAlarmPermission = useCallback(async () => {
+    setPermissionLoading('exactAlarms');
+    try {
+      const granted = await checkExactAlarm();
+      if (!granted && Platform.OS === 'android') {
+        await IntentLauncher.startActivityAsync(
+          'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+          applicationId ? { data: `package:${applicationId}` } : undefined
+        );
+        // The AppState effect below re-checks on return.
+      }
     } finally {
       setPermissionLoading(null);
     }
-  }, []);
+  }, [checkExactAlarm]);
+
+  // When returning from system Settings, silently re-check exact alarms.
+  useEffect(() => {
+    if (step !== 'permissions') return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void checkExactAlarm();
+      }
+    });
+    return () => sub.remove();
+  }, [step, checkExactAlarm]);
 
   const requestAllPermissions = useCallback(async () => {
     await requestMicrophonePermission();

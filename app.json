@@ -2,7 +2,7 @@
   "expo": {
     "name": "Smart Clock",
     "slug": "smart_clock",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -37,7 +37,7 @@
         "monochromeImage": "./assets/adaptive-icon-mono.png"
       },
       "package": "com.poirouxmartin.smartclock",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "RECORD_AUDIO",
         "FOREGROUND_SERVICE",
