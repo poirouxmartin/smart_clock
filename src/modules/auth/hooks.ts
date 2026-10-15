@@ -1,33 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAuthService, AuthService } from './AuthService';
-import { User, AuthState } from './types';
+import { getAuthService } from './AuthService';
+import type { AuthUser } from './types';
 
+/**
+ * Hook d'état d'authentification, aligné sur l'API réelle de AuthService.
+ * Non utilisé par l'app pour l'instant (routage sans porte de connexion).
+ */
 export function useAuth() {
-  const [service] = useState<AuthService>(() => getAuthService());
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    isAuthenticated: false,
-    isLoading: true,
-  });
+  const [service] = useState(() => getAuthService());
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
       try {
-        await service.initialize();
-        if (mounted) {
-          setState({
-            user: service.getCurrentUser(),
-            isAuthenticated: service.isAuthenticated(),
-            isLoading: false,
-          });
-        }
+        const restored = await service.restoreSession();
+        if (mounted) setUser(restored);
       } catch (e) {
         console.error('Auth initialization failed:', e);
-        if (mounted) {
-          setState({ user: null, isAuthenticated: false, isLoading: false });
-        }
+        if (mounted) setUser(null);
+      } finally {
+        if (mounted) setIsLoading(false);
       }
     };
 
@@ -37,24 +32,26 @@ export function useAuth() {
   }, [service]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const user = await service.login(email, password);
-    setState({ user, isAuthenticated: true, isLoading: false });
-    return user;
+    const result = await service.login(email, password);
+    setUser(result.user);
+    return result.user;
   }, [service]);
 
   const signup = useCallback(async (email: string, name: string, password: string) => {
-    const user = await service.signup(email, name, password);
-    setState({ user, isAuthenticated: true, isLoading: false });
-    return user;
+    const result = await service.signup(email, name, password);
+    setUser(result.user);
+    return result.user;
   }, [service]);
 
   const logout = useCallback(async () => {
     await service.logout();
-    setState({ user: null, isAuthenticated: false, isLoading: false });
+    setUser(null);
   }, [service]);
 
   return {
-    ...state,
+    user,
+    isAuthenticated: service.isAuthenticated(),
+    isLoading,
     login,
     signup,
     logout,
