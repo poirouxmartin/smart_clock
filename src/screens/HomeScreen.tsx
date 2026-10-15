@@ -1,22 +1,23 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, RefreshControl, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, withDelay, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useI18n } from '@/modules/i18n';
 import { getUserProfileManager } from '@/modules/user-profile';
-import { getBedtimeCalculator, createBedtimeCalculator } from '@/modules/bedtime-calculator';
+import { createBedtimeCalculator } from '@/modules/bedtime-calculator';
 import { getAlarmEngine } from '@/modules/alarm-engine';
-import { AnimatedButton } from '@/components/AnimatedButton';
-import { AnimatedCard } from '@/components/AnimatedCard';
-import { useSlideUp, useFadeIn, useScaleIn } from '@/hooks/useAnimatedStyles';
+import { Colors, Typography, Spacing, Radius } from '@/theme';
+import { useSlideUp } from '@/hooks/useAnimatedStyles';
 import type { RootStackParamList, SleepSession } from '@/types';
 
 type HomeNav = React.NavigationProp<RootStackParamList, 'Home'>;
 
 export function HomeScreen() {
   const navigation = useNavigation<HomeNav>();
-  const { t, tHome, tAlarm, tSleep, tCommon, formatTime, formatDuration, currentLocale } = useI18n();
-  
+  const { tHome, tAlarm, tSleep, formatTime, formatDuration, currentLocale } = useI18n();
+
   const [timeString, setTimeString] = useState('');
   const [dateString, setDateString] = useState('');
   const [nextAlarm, setNextAlarm] = useState<{ label: string; windowStart: string; windowEnd: string } | null>(null);
@@ -24,31 +25,27 @@ export function HomeScreen() {
   const [lastNight, setLastNight] = useState<SleepSession | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const pulseAnim = useSharedValue(1);
 
-  // Animations
   const headerAnim = useSlideUp(0, 600, 40);
   const alarmCardAnim = useSlideUp(150, 600, 30);
   const bedtimeCardAnim = useSlideUp(250, 600, 30);
-  const buttonsAnim = useSlideUp(350, 600, 30);
+  const actionsAnim = useSlideUp(350, 600, 30);
   const lastNightAnim = useSlideUp(450, 600, 30);
-  const pulseAnim = useSharedValue(1);
 
   const loadData = useCallback(async () => {
     try {
       const profileManager = getUserProfileManager();
       const profile = profileManager.getProfile();
-      
       if (!profile?.onboardingComplete) {
-        navigation.replace('Onboarding');
+        navigation.replace('EnrichedOnboarding');
         return;
       }
-      
       setOnboardingDone(true);
+
       const bedtimeCalc = createBedtimeCalculator();
       const alarmEngine = getAlarmEngine();
 
-      // Next alarm
       const alarms = alarmEngine.getEnabledAlarms();
       if (alarms.length > 0) {
         const next = alarmEngine.getNextWakeTime(alarms[0].id);
@@ -63,12 +60,10 @@ export function HomeScreen() {
         }
       }
 
-      // Bedtime calculation
       if (profile) {
         const wakeTime = new Date();
         wakeTime.setHours(7, 30, 0, 0);
         if (wakeTime <= new Date()) wakeTime.setDate(wakeTime.getDate() + 1);
-        
         const result = bedtimeCalc.calculate({
           targetWakeTime: wakeTime.getTime(),
           sleepCycleLength: profile.sleepCycleLength,
@@ -76,17 +71,11 @@ export function HomeScreen() {
           fallAsleepDuration: profile.fallAsleepDuration,
           chronotype: profile.chronotype,
         });
-        setBedtime({
-          time: formatTime(new Date(result.idealBedtime)),
-          cycles: result.cycles,
-        });
+        setBedtime({ time: formatTime(new Date(result.idealBedtime)), cycles: result.cycles });
       }
 
-      // Last night
       const sessions = await profileManager.getRecentSessions(1);
-      if (sessions.length > 0) {
-        setLastNight(sessions[0]);
-      }
+      if (sessions.length > 0) setLastNight(sessions[0]);
     } catch (e) {
       console.error('HomeScreen loadData error:', e);
     }
@@ -114,28 +103,21 @@ export function HomeScreen() {
 
   useEffect(() => {
     loadData();
-    setMounted(true);
     headerAnim.trigger();
     alarmCardAnim.trigger();
     bedtimeCardAnim.trigger();
-    buttonsAnim.trigger();
+    actionsAnim.trigger();
     lastNightAnim.trigger();
   }, [loadData]);
 
   if (!onboardingDone) {
     return (
-      <SafeAreaView style={styles.container}>
+      <LinearGradient colors={['#0a0e1a', '#0f172a']} style={styles.container}>
         <View style={styles.loading}>
-          <Animated.View style={[
-            styles.loadingSpinner,
-            {
-              transform: [{ scale: pulseAnim }],
-            },
-          ]}>
-            <Text style={styles.loadingText}>{tCommon('loading')}</Text>
-          </Animated.View>
+          <Ionicons name="moon" size={48} color={Colors.primary} />
+          <Text style={styles.loadingText}>Chargement...</Text>
         </View>
-      </SafeAreaView>
+      </LinearGradient>
     );
   }
 
@@ -144,224 +126,226 @@ export function HomeScreen() {
     return formatDuration(ms);
   };
 
-  const getQualityLabel = (rating?: SleepSession['qualityRating']) => {
-    if (!rating) return tSleep('ok');
+  const getQualityColor = (rating?: SleepSession['qualityRating']) => {
+    if (!rating) return Colors.textDim;
     const map: Record<SleepSession['qualityRating'], string> = {
-      great: tSleep('great'),
-      good: tSleep('good'),
-      ok: tSleep('ok'),
-      poor: tSleep('poor'),
+      great: Colors.success,
+      good: Colors.successDark,
+      ok: Colors.warning,
+      poor: Colors.danger,
     };
     return map[rating];
   };
 
-  const getQualityColor = (rating?: SleepSession['qualityRating']) => {
-    if (!rating) return '#64748b';
+  const getQualityLabel = (rating?: SleepSession['qualityRating']) => {
+    if (!rating) return '--';
     const map: Record<SleepSession['qualityRating'], string> = {
-      great: '#22c55e',
-      good: '#16a34a',
-      ok: '#f59e0b',
-      poor: '#ef4444',
+      great: 'Excellente',
+      good: 'Bonne',
+      ok: 'Moyenne',
+      poor: 'Mauvaise',
+    };
+    return map[rating];
+  };
+
+  const getQualityIcon = (rating?: SleepSession['qualityRating']): keyof typeof Ionicons.glyphMap => {
+    if (!rating) return 'help-circle-outline';
+    const map: Record<SleepSession['qualityRating'], keyof typeof Ionicons.glyphMap> = {
+      great: 'star',
+      good: 'thumbs-up',
+      ok: 'remove-circle-outline',
+      poor: 'alert-circle-outline',
     };
     return map[rating];
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0ea5e9']} />}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header with Clock */}
-        <Animated.View style={[styles.header, headerAnim.animatedStyle]}>
-          <Animated.Text style={styles.time}>{timeString}</Animated.Text>
-          <Animated.Text style={styles.date}>{dateString}</Animated.Text>
-        </Animated.View>
-
-        {/* Next Alarm Card */}
-        {nextAlarm && (
-          <Animated.View style={[styles.card, alarmCardAnim.animatedStyle]}>
-            <View style={styles.cardHeader}>
-              <Animated.Text style={styles.cardTitle}>{tAlarm('nextAlarm')}</Animated.Text>
-              <Animated.View style={styles.smartBadge}>
-                <Animated.Text style={styles.smartBadgeText}>🧠 {tAlarm('smart')}</Animated.Text>
-              </Animated.View>
-            </View>
-            <Animated.Text style={styles.nextAlarm}>{nextAlarm.windowStart} - {nextAlarm.windowEnd}</Animated.Text>
-            <Animated.Text style={styles.alarmSubtitle}>{tAlarm('smartWakeWindow')}</Animated.Text>
-            <Animated.Text style={styles.alarmLabel}>{nextAlarm.label}</Animated.Text>
+    <LinearGradient colors={['#0a0e1a', '#0f172a', '#1e1b4b']} style={styles.container}>
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View style={[styles.header, headerAnim.animatedStyle]}>
+            <Ionicons name="moon" size={20} color={Colors.accent} style={{ marginBottom: 8 }} />
+            <Animated.Text style={styles.time}>{timeString}</Animated.Text>
+            <Animated.Text style={styles.date}>{dateString}</Animated.Text>
           </Animated.View>
-        )}
 
-        {/* Bedtime Indicator Card */}
-        {bedtime && (
-          <Animated.View style={[styles.card, styles.bedtimeCard, bedtimeCardAnim.animatedStyle]}>
-            <Animated.Text style={styles.cardTitle}>{tHome('bedtimeIndicator')}</Animated.Text>
-            <Animated.Text style={styles.bedtime}>{bedtime.time}</Animated.Text>
-            <Animated.Text style={styles.bedtimeSubtitle}>{tHome('forCycles', { cycles: bedtime.cycles })}</Animated.Text>
+          {nextAlarm && (
+            <Animated.View style={[alarmCardAnim.animatedStyle]}>
+              <LinearGradient colors={[Colors.bgCard, Colors.bgCardAlt]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.alarmGradient}>
+                <View style={styles.alarmHeader}>
+                  <View style={styles.alarmTitleRow}>
+                    <Ionicons name="alarm-outline" size={18} color={Colors.primary} />
+                    <Text style={styles.alarmTitleText}>Prochain réveil</Text>
+                  </View>
+                  <View style={styles.smartBadge}>
+                    <Ionicons name="sparkles" size={12} color="#fff" />
+                    <Text style={styles.smartBadgeText}>SMART</Text>
+                  </View>
+                </View>
+                <Text style={styles.alarmTime}>{nextAlarm.windowStart} — {nextAlarm.windowEnd}</Text>
+                <Text style={styles.alarmSubtitle}>Fenêtre intelligente 1h30</Text>
+                <View style={styles.alarmLabelRow}>
+                  <Ionicons name="label-outline" size={14} color={Colors.primaryLight} />
+                  <Text style={styles.alarmLabel}>{nextAlarm.label}</Text>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+          )}
+
+          {bedtime && (
+            <Animated.View style={[bedtimeCardAnim.animatedStyle]}>
+              <LinearGradient colors={[Colors.bgCardAlt, Colors.bgCard]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bedtimeGradient}>
+                <View style={styles.bedtimeHeader}>
+                  <Ionicons name="bed-outline" size={18} color={Colors.accent} />
+                  <Text style={styles.bedtimeTitleText}>Heure de coucher</Text>
+                </View>
+                <Text style={styles.bedtime}>{bedtime.time}</Text>
+                <Text style={styles.bedtimeSubtitle}>{bedtime.cycles} cycles complets recommandés</Text>
+              </LinearGradient>
+            </Animated.View>
+          )}
+
+          <Animated.View style={[styles.actionsGrid, actionsAnim.animatedStyle]}>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('SleepMode')}>
+              <LinearGradient colors={[Colors.purple + '30', Colors.purple + '10']} style={styles.actionCardInner}>
+                <View style={[styles.actionIcon, { backgroundColor: Colors.purple + '30' }]}>
+                  <Ionicons name="moon" size={24} color={Colors.purple} />
+                </View>
+                <Text style={styles.actionLabel}>Mode{'\n'}Sommeil</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Stats')}>
+              <LinearGradient colors={[Colors.primary + '30', Colors.primary + '10']} style={styles.actionCardInner}>
+                <View style={[styles.actionIcon, { backgroundColor: Colors.primary + '30' }]}>
+                  <Ionicons name="bar-chart" size={24} color={Colors.primary} />
+                </View>
+                <Text style={styles.actionLabel}>Stats &{'\n'}Graphiques</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AlarmSetup')}>
+              <LinearGradient colors={[Colors.success + '30', Colors.success + '10']} style={styles.actionCardInner}>
+                <View style={[styles.actionIcon, { backgroundColor: Colors.success + '30' }]}>
+                  <Ionicons name="alarm-outline" size={24} color={Colors.success} />
+                </View>
+                <Text style={styles.actionLabel}>Nouveau{'\n'}Réveil</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('SleepAnalysis')}>
+              <LinearGradient colors={[Colors.warning + '30', Colors.warning + '10']} style={styles.actionCardInner}>
+                <View style={[styles.actionIcon, { backgroundColor: Colors.warning + '30' }]}>
+                  <Ionicons name="analytics-outline" size={24} color={Colors.warning} />
+                </View>
+                <Text style={styles.actionLabel}>Analyse{'\n'}Sommeil</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </Animated.View>
-        )}
 
-        {/* Action Buttons */}
-        <Animated.View style={[styles.buttonRow, buttonsAnim.animatedStyle]}>
-          <AnimatedButton
-            variant="primary"
-            size="lg"
-            fullWidth={false}
-            onPress={() => navigation.navigate('AlarmSetup')}
-            icon="➕"
-            iconPosition="left"
-          >
-            {tHome('newAlarm')}
-          </AnimatedButton>
-          <AnimatedButton
-            variant="outline"
-            size="lg"
-            fullWidth={false}
-            onPress={() => navigation.navigate('SleepAnalysis')}
-            icon="📊"
-            iconPosition="left"
-          >
-            {tHome('sleepAnalysis')}
-          </AnimatedButton>
-        </Animated.View>
+          {lastNight && (
+            <Animated.View style={[lastNightAnim.animatedStyle]}>
+              <LinearGradient colors={[Colors.bgCard, Colors.bgCard]} style={styles.lastNightCard}>
+                <View style={styles.lastNightHeader}>
+                  <View style={styles.lastNightTitleRow}>
+                    <Ionicons name="cloudy-night" size={18} color={Colors.textMuted} />
+                    <Text style={styles.lastNightTitle}>Hier soir</Text>
+                  </View>
+                  <View style={[styles.qualityBadge, { backgroundColor: getQualityColor(lastNight.qualityRating) + '20' }]}>
+                    <Ionicons name={getQualityIcon(lastNight.qualityRating)} size={14} color={getQualityColor(lastNight.qualityRating)} />
+                    <Text style={[styles.qualityText, { color: getQualityColor(lastNight.qualityRating) }]}>{getQualityLabel(lastNight.qualityRating)}</Text>
+                  </View>
+                </View>
 
-        {/* Last Night Card */}
-        {lastNight && (
-          <Animated.View style={[styles.card, lastNightAnim.animatedStyle]}>
-            <View style={styles.cardHeader}>
-              <Animated.Text style={styles.cardTitle}>{tHome('lastNight')}</Animated.Text>
-              <Animated.Text style={[styles.qualityBadge, { backgroundColor: getQualityColor(lastNight.qualityRating) }]}>
-                {getQualityLabel(lastNight.qualityRating)}
-              </Animated.Text>
-            </View>
-            
-            <View style={styles.sleepSummary}>
-              <View style={styles.summaryItem}>
-                <Animated.Text style={styles.summaryValue}>{formatSleepDuration(lastNight.totalSleepTime)}</Animated.Text>
-                <Animated.Text style={styles.summaryLabel}>{tHome('duration')}</Animated.Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Animated.Text style={styles.summaryValue}>{lastNight.sleepEfficiency ? `${lastNight.sleepEfficiency}%` : '--'}</Animated.Text>
-                <Animated.Text style={styles.summaryLabel}>{tSleep('sleepEfficiency')}</Animated.Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Animated.Text style={styles.summaryValue}>{lastNight.cyclesCount || '--'}</Animated.Text>
-                <Animated.Text style={styles.summaryLabel}>{tHome('cycles')}</Animated.Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Animated.Text style={styles.summaryValue}>{getQualityLabel(lastNight.qualityRating)}</Animated.Text>
-                <Animated.Text style={styles.summaryLabel}>{tSleep('quality')}</Animated.Text>
-              </View>
-            </View>
-            
-            {lastNight.wakeTriggerReason && (
-              <Animated.Text style={styles.wakeReason}>
-                {tAlarm('triggerReason', { reason: lastNight.wakeTriggerReason })}
-              </Animated.Text>
-            )}
-          </Animated.View>
-        )}
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <Ionicons name="time-outline" size={20} color={Colors.primary} />
+                    <Text style={styles.statValue}>{formatSleepDuration(lastNight.totalSleepTime)}</Text>
+                    <Text style={styles.statLabel}>Durée</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Ionicons name="pulse-outline" size={20} color={Colors.success} />
+                    <Text style={styles.statValue}>{lastNight.sleepEfficiency ? `${lastNight.sleepEfficiency}%` : '--'}</Text>
+                    <Text style={styles.statLabel}>Efficacité</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Ionicons name="repeat-outline" size={20} color={Colors.accent} />
+                    <Text style={styles.statValue}>{lastNight.cyclesCount || '--'}</Text>
+                    <Text style={styles.statLabel}>Cycles</Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+          )}
+        </ScrollView>
 
-        {__DEV__ && (
-          <AnimatedButton
-            variant="ghost"
-            size="md"
-            fullWidth
-            onPress={() => navigation.navigate('DevTools')}
-            icon="🛠"
-            iconPosition="left"
-            style={styles.devButton}
-          >
-            {tHome('devTools')}
-          </AnimatedButton>
-        )}
-      </ScrollView>
-
-      <AnimatedButton
-        variant="ghost"
-        size="md"
-        onPress={() => navigation.navigate('Settings')}
-        icon="⚙️"
-        iconPosition="left"
-        style={styles.settingsButton}
-      >
-        {tCommon('settings')}
-      </AnimatedButton>
-    </SafeAreaView>
+        <View style={styles.bottomBar}>
+          <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('SleepMode')}>
+            <Ionicons name="moon" size={22} color={Colors.accent} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.bottomButton, styles.bottomButtonCenter]} onPress={() => navigation.navigate('AlarmSetup')}>
+            <Ionicons name="add" size={28} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Settings')}>
+            <Ionicons name="settings-outline" size={22} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0e1a' },
-  scrollContent: { flex: 1, padding: 20, paddingBottom: 100 },
-  header: { alignItems: 'center', marginBottom: 24 },
-  time: { fontSize: 76, fontWeight: '200', color: '#fff', letterSpacing: -3 },
-  date: { fontSize: 16, color: '#8b9cb3', textTransform: 'capitalize', marginTop: 4 },
-  card: { 
-    backgroundColor: '#131a2e', 
-    borderRadius: 20, 
-    padding: 24, 
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  bedtimeCard: {
-    backgroundColor: '#0c2d48',
-    borderColor: '#0ea5e9',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cardTitle: { 
-    fontSize: 14, 
-    color: '#8b9cb3', 
-    marginBottom: 8, 
-    textTransform: 'uppercase', 
-    letterSpacing: 1,
-    fontWeight: '600',
-  },
-  smartBadge: {
-    backgroundColor: '#0ea5e9',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  smartBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  nextAlarm: { fontSize: 40, fontWeight: '600', color: '#fff', marginTop: 8 },
-  alarmSubtitle: { fontSize: 13, color: '#64748b', marginTop: 4 },
-  alarmLabel: { fontSize: 13, color: '#0ea5e9', marginTop: 8, fontWeight: '500' },
-  bedtime: { fontSize: 40, fontWeight: '600', color: '#22d3ee' },
-  bedtimeSubtitle: { fontSize: 13, color: '#64748b', marginTop: 4 },
-  buttonRow: { flexDirection: 'row', gap: 12, marginVertical: 8 },
-  sleepSummary: { flexDirection: 'row', justifyContent: 'space-around', flexWrap: 'wrap', gap: 16 },
-  summaryItem: { alignItems: 'center', minWidth: '40%' },
-  summaryValue: { fontSize: 26, fontWeight: '700', color: '#fff' },
-  summaryLabel: { fontSize: 12, color: '#8b9cb3', marginTop: 2 },
-  qualityBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  wakeReason: { fontSize: 12, color: '#64748b', marginTop: 16, textAlign: 'center', fontStyle: 'italic' },
-  devButton: { marginTop: 20 },
-  settingsButton: { position: 'absolute', bottom: 30, alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 12 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingSpinner: { alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: '#8b9cb3', fontSize: 16, marginTop: 16 },
+  container: { flex: 1 },
+  safe: { flex: 1 },
+  scrollContent: { padding: Spacing.xl, paddingBottom: 120 },
+  header: { alignItems: 'center', marginBottom: Spacing.xxxl },
+  time: { ...Typography.clock, textAlign: 'center' },
+  date: { ...Typography.body, color: Colors.textMuted, textTransform: 'capitalize', marginTop: Spacing.xs },
+
+  alarmGradient: { borderRadius: Radius.xl, padding: Spacing.xxl, borderWidth: 1, borderColor: Colors.primary + '30' },
+  alarmHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  alarmTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  alarmTitleText: { ...Typography.label },
+  smartBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary, paddingHorizontal: Spacing.md, paddingVertical: 4, borderRadius: Radius.full },
+  smartBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 1 },
+  alarmTime: { fontSize: 36, fontWeight: '600', color: Colors.text },
+  alarmSubtitle: { ...Typography.caption, marginTop: Spacing.xs },
+  alarmLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.md },
+  alarmLabel: { ...Typography.bodySmall, color: Colors.primaryLight, fontWeight: '500' },
+
+  bedtimeGradient: { borderRadius: Radius.xl, padding: Spacing.xxl, marginTop: Spacing.md, borderWidth: 1, borderColor: Colors.accent + '30' },
+  bedtimeHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
+  bedtimeTitleText: { ...Typography.label, color: Colors.accent },
+  bedtime: { fontSize: 42, fontWeight: '700', color: Colors.accent },
+  bedtimeSubtitle: { ...Typography.caption, marginTop: Spacing.xs },
+
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginTop: Spacing.xl },
+  actionCard: { width: '47%', borderRadius: Radius.xl, overflow: 'hidden' },
+  actionCardInner: { padding: Spacing.xl, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, minHeight: 110, justifyContent: 'center' },
+  actionIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
+  actionLabel: { ...Typography.bodySmall, fontWeight: '600', textAlign: 'center', lineHeight: 18 },
+
+  lastNightCard: { borderRadius: Radius.xl, padding: Spacing.xxl, marginTop: Spacing.md, borderWidth: 1, borderColor: Colors.border },
+  lastNightHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
+  lastNightTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  lastNightTitle: { ...Typography.label },
+  qualityBadge: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: Radius.full },
+  qualityText: { fontSize: 13, fontWeight: '600' },
+
+  statsGrid: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  statItem: { alignItems: 'center', flex: 1 },
+  statValue: { fontSize: 22, fontWeight: '700', color: Colors.text, marginTop: Spacing.sm },
+  statLabel: { ...Typography.caption, marginTop: Spacing.xs },
+  statDivider: { width: 1, height: 40, backgroundColor: Colors.border },
+
+  bottomBar: { position: 'absolute', bottom: 24, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32, paddingHorizontal: Spacing.xxxl },
+  bottomButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  bottomButtonCenter: { width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primary, borderWidth: 0 },
+
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.md },
+  loadingText: { ...Typography.body, color: Colors.textMuted },
 });

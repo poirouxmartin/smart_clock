@@ -113,22 +113,7 @@ export class NotificationService {
     }
 
     if (Platform.OS === 'android' && finalStatus === 'granted') {
-      try {
-        const exactAlarmPermission = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.USE_EXACT_ALARM,
-          {
-            title: 'Permission réveil précis',
-            message: 'Smart Clock a besoin de programmer des alarmes exactes pour vous réveiller au bon moment.',
-            buttonPositive: 'Autoriser',
-            buttonNegative: 'Refuser',
-          }
-        );
-        if (exactAlarmPermission !== PermissionsAndroid.RESULTS.GRANTED) {
-          console.warn('[NotificationService] Exact alarm permission denied');
-        }
-      } catch (e) {
-        console.warn('[NotificationService] Exact alarm permission error:', e);
-      }
+      console.log('[NotificationService] Notifications granted. Exact alarms will be handled at schedule time.');
     }
 
     this.permissions = {

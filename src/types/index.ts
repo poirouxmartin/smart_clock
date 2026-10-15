@@ -43,6 +43,7 @@ export interface AlarmConfig {
   label: string;
   wakeWindowStart: string;
   wakeWindowEnd: string;
+  wakeWindowMinutes: number;
   days: number[];
   enabled: boolean;
   soundId: string;
@@ -63,10 +64,15 @@ export interface SoundAsset {
 }
 
 export type RootStackParamList = {
+  Login: undefined;
+  Signup: undefined;
   Onboarding: undefined;
+  EnrichedOnboarding: undefined;
   Home: undefined;
   AlarmSetup: { alarmId?: string };
   SleepAnalysis: { sessionId?: string };
+  SleepMode: undefined;
+  Stats: undefined;
   Settings: undefined;
   DevTools: undefined;
   CustomSounds: undefined;

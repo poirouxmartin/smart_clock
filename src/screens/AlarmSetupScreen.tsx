@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TimePickerAndroid, Platform, Alert, Switch } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useI18n } from '@/modules/i18n';
 import { getAlarmEngine } from '@/modules/alarm-engine';
 import { getUserProfileManager } from '@/modules/user-profile';
@@ -27,6 +28,9 @@ export function AlarmSetupScreen() {
   const [snoozeDuration, setSnoozeDuration] = useState(10);
   const [sounds, setSounds] = useState<Array<{id: string; name: string}>>([]);
   const [loading, setLoading] = useState(true);
+  const [wakeWindowMinutes, setWakeWindowMinutes] = useState(90);
+
+  const WAKE_WINDOW_OPTIONS = [30, 45, 60, 75, 90, 105, 120];
 
   useEffect(() => {
     const loadData = async () => {
@@ -71,6 +75,7 @@ export function AlarmSetupScreen() {
         setVibrationEnabled(alarm.vibrationEnabled);
         setSnoozeEnabled(alarm.snoozeEnabled);
         setSnoozeDuration(alarm.snoozeDuration / 60000);
+        setWakeWindowMinutes(alarm.wakeWindowMinutes || 90);
       }
     }
   }, [isEditing, route.params?.alarmId]);
@@ -119,6 +124,7 @@ export function AlarmSetupScreen() {
       label: `${tAlarm('newAlarm')} ${wakeStart} - ${wakeEnd}`,
       wakeWindowStart: wakeStart,
       wakeWindowEnd: wakeEnd,
+      wakeWindowMinutes,
       days: selectedDays,
       enabled: true,
       soundId,
@@ -138,7 +144,7 @@ export function AlarmSetupScreen() {
 
     Alert.alert(tCommon('save'), isEditing ? tAlarm('enabled') : tCommon('save') + ' !');
     navigation.goBack();
-  }, [isEditing, route.params?.alarmId, wakeStart, wakeEnd, selectedDays, soundId, volume, lightEnabled, vibrationEnabled, snoozeEnabled, snoozeDuration, navigation, validateWindow]);
+  }, [isEditing, route.params?.alarmId, wakeStart, wakeEnd, wakeWindowMinutes, selectedDays, soundId, volume, lightEnabled, vibrationEnabled, snoozeEnabled, snoozeDuration, navigation, validateWindow]);
 
   if (loading) {
     return (
@@ -163,7 +169,7 @@ export function AlarmSetupScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{tAlarm('wakeWindow')} (1h30)</Text>
+          <Text style={styles.sectionTitle}>{tAlarm('wakeWindow')} ({wakeWindowMinutes >= 60 ? `${Math.floor(wakeWindowMinutes / 60)}h${wakeWindowMinutes % 60 > 0 ? wakeWindowMinutes % 60 : ''}` : `${wakeWindowMinutes}min`})</Text>
           <View style={styles.timeRow}>
             <TouchableOpacity style={styles.timeBox} onPress={() => pickTime(setWakeStart, wakeStart)}>
               <Text style={styles.timeLabel}>{tAlarm('wakeWindowStart')}</Text>
@@ -176,6 +182,35 @@ export function AlarmSetupScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.helpText}>{tAlarm('smartWake')}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.wakeWindowHeader}>
+            <Ionicons name="time-outline" size={16} color="#8b9cb3" style={{ marginRight: 6 }} />
+            <Text style={styles.sectionTitle}>Fenêtre de réveil</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.wakeWindowChips}>
+            {WAKE_WINDOW_OPTIONS.map(mins => (
+              <TouchableOpacity
+                key={mins}
+                style={[styles.wakeChip, wakeWindowMinutes === mins && styles.wakeChipActive]}
+                onPress={() => setWakeWindowMinutes(mins)}
+              >
+                <Text style={[styles.wakeChipText, wakeWindowMinutes === mins && styles.wakeChipTextActive]}>
+                  {mins >= 60 ? `${Math.floor(mins / 60)}h${mins % 60 > 0 ? mins % 60 : ''}` : `${mins}min`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <Text style={styles.wakeWindowSubtitle}>
+            {(() => {
+              const [h, m] = wakeStart.split(':').map(Number);
+              const target = new Date();
+              target.setHours(h, m, 0, 0);
+              const start = new Date(target.getTime() - wakeWindowMinutes * 60 * 1000);
+              return `${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} → ${wakeEnd}`;
+            })()}
+          </Text>
         </View>
 
         <View style={styles.section}>
@@ -288,6 +323,13 @@ const styles = StyleSheet.create({
   timeValue: { fontSize: 28, fontWeight: '600', color: '#fff' },
   timeSeparator: { fontSize: 24, color: '#64748b' },
   helpText: { fontSize: 12, color: '#64748b', marginTop: 8, textAlign: 'center' },
+  wakeWindowHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  wakeWindowChips: { gap: 8, paddingVertical: 4 },
+  wakeChip: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#131a2e', borderRadius: 8, borderWidth: 1, borderColor: '#1e293b' },
+  wakeChipActive: { backgroundColor: '#0ea5e9', borderColor: '#0ea5e9' },
+  wakeChipText: { fontSize: 14, color: '#e2e8f0' },
+  wakeChipTextActive: { color: '#fff', fontWeight: '600' },
+  wakeWindowSubtitle: { fontSize: 12, color: '#64748b', marginTop: 8, textAlign: 'center' },
   daysRow: { flexDirection: 'row', justifyContent: 'space-between' },
   dayButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#131a2e', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#1e293b' },
   dayButtonActive: { backgroundColor: '#0ea5e9', borderColor: '#0ea5e9' },

@@ -159,6 +159,14 @@ export const DEFAULT_USER_PROFILE: Omit<UserProfile, 'id' | 'createdAt' | 'updat
 };
 
 export const DB_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS user_profile (
     id TEXT PRIMARY KEY,
     data TEXT NOT NULL,

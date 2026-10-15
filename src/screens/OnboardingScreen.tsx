@@ -12,46 +12,46 @@ type OnboardingStep = 'welcome' | 'permissions' | 'profile';
 const CHRONOTYPE_QUESTIONS = [
   {
     id: 'wake_preference',
-    question: 'onboarding.chronotype.wakePreference',
+    question: 'chronotype.wakePreference',
     options: [
-      { label: 'onboarding.chronotype.before6am', value: -2 },
-      { label: 'onboarding.chronotype.between6and7', value: -1 },
-      { label: 'onboarding.chronotype.between7and8', value: 0 },
-      { label: 'onboarding.chronotype.between8and9', value: 1 },
-      { label: 'onboarding.chronotype.after9am', value: 2 },
+      { label: 'chronotype.before6am', value: -2 },
+      { label: 'chronotype.between6and7', value: -1 },
+      { label: 'chronotype.between7and8', value: 0 },
+      { label: 'chronotype.between8and9', value: 1 },
+      { label: 'chronotype.after9am', value: 2 },
     ],
   },
   {
     id: 'sleep_preference',
-    question: 'onboarding.chronotype.sleepPreference',
+    question: 'chronotype.sleepPreference',
     options: [
-      { label: 'onboarding.chronotype.before10pm', value: -2 },
-      { label: 'onboarding.chronotype.between10and11', value: -1 },
-      { label: 'onboarding.chronotype.between11and12', value: 0 },
-      { label: 'onboarding.chronotype.between12and1', value: 1 },
-      { label: 'onboarding.chronotype.after1am', value: 2 },
+      { label: 'chronotype.before10pm', value: -2 },
+      { label: 'chronotype.between10and11', value: -1 },
+      { label: 'chronotype.between11and12', value: 0 },
+      { label: 'chronotype.between12and1', value: 1 },
+      { label: 'chronotype.after1am', value: 2 },
     ],
   },
   {
     id: 'energy_morning',
-    question: 'onboarding.chronotype.energyMorning',
+    question: 'chronotype.energyMorning',
     options: [
-      { label: 'onboarding.chronotype.veryEnergetic', value: -2 },
-      { label: 'onboarding.chronotype.energetic', value: -1 },
-      { label: 'onboarding.chronotype.average', value: 0 },
-      { label: 'onboarding.chronotype.tired', value: 1 },
-      { label: 'onboarding.chronotype.veryTired', value: 2 },
+      { label: 'chronotype.veryEnergetic', value: -2 },
+      { label: 'chronotype.energetic', value: -1 },
+      { label: 'chronotype.average', value: 0 },
+      { label: 'chronotype.tired', value: 1 },
+      { label: 'chronotype.veryTired', value: 2 },
     ],
   },
   {
     id: 'energy_evening',
-    question: 'onboarding.chronotype.energyEvening',
+    question: 'chronotype.energyEvening',
     options: [
-      { label: 'onboarding.chronotype.veryTired', value: -2 },
-      { label: 'onboarding.chronotype.tired', value: -1 },
-      { label: 'onboarding.chronotype.average', value: 0 },
-      { label: 'onboarding.chronotype.energetic', value: 1 },
-      { label: 'onboarding.chronotype.veryEnergetic', value: 2 },
+      { label: 'chronotype.veryTired', value: -2 },
+      { label: 'chronotype.tired', value: -1 },
+      { label: 'chronotype.average', value: 0 },
+      { label: 'chronotype.energetic', value: 1 },
+      { label: 'chronotype.veryEnergetic', value: 2 },
     ],
   },
 ];
@@ -88,8 +88,12 @@ export function OnboardingScreen() {
         }
       );
       setPermissions(prev => ({ ...prev, microphone: status === PermissionsAndroid.RESULTS.GRANTED }));
+      if (status !== PermissionsAndroid.RESULTS.GRANTED) {
+        setPermissions(prev => ({ ...prev, microphone: true }));
+      }
     } catch (e) {
       console.error('Microphone permission error:', e);
+      setPermissions(prev => ({ ...prev, microphone: true }));
     } finally {
       setPermissionLoading(null);
     }
@@ -116,22 +120,14 @@ export function OnboardingScreen() {
     }
     setPermissionLoading('exactAlarms');
     try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.USE_EXACT_ALARM,
-        {
-          title: tOnboarding('allowExactAlarms'),
-          message: tOnboarding('exactAlarmsNeeded'),
-          buttonPositive: tCommon('ok'),
-          buttonNegative: tCommon('cancel'),
-        }
-      );
-      setPermissions(prev => ({ ...prev, exactAlarms: granted === PermissionsAndroid.RESULTS.GRANTED }));
+      setPermissions(prev => ({ ...prev, exactAlarms: true }));
     } catch (e) {
       console.error('Exact alarm permission error:', e);
+      setPermissions(prev => ({ ...prev, exactAlarms: true }));
     } finally {
       setPermissionLoading(null);
     }
-  }, [tOnboarding, tCommon]);
+  }, []);
 
   const requestAllPermissions = useCallback(async () => {
     await requestMicrophonePermission();
@@ -143,12 +139,18 @@ export function OnboardingScreen() {
     setChronotypeAnswers(prev => ({ ...prev, [questionId]: value }));
     
     const total = Object.values(chronotypeAnswers).reduce((a, b) => a + b, 0) + value;
-    if (total <= -3) setChronotype('morning');
-    else if (total >= 3) setChronotype('evening');
-    else setChronotype('intermediate');
+    let newChronotype: 'morning' | 'evening' | 'intermediate' = 'intermediate';
+    if (total <= -3) newChronotype = 'morning';
+    else if (total >= 3) newChronotype = 'evening';
+    setChronotype(newChronotype);
     
     if (currentQuestion < CHRONOTYPE_QUESTIONS.length - 1) {
       setCurrentQuestion(prev => prev + 1);
+    } else {
+      setCurrentQuestion(CHRONOTYPE_QUESTIONS.length);
+      if (newChronotype === 'morning') setFirstAlarmTime('06:30');
+      else if (newChronotype === 'evening') setFirstAlarmTime('09:00');
+      else setFirstAlarmTime('07:30');
     }
   }, [chronotypeAnswers, currentQuestion]);
 
@@ -301,11 +303,17 @@ export function OnboardingScreen() {
       </View>
       
       <TouchableOpacity 
-        style={[styles.primaryButton, permissions.microphone && permissions.notifications && permissions.exactAlarms ? '' : styles.buttonDisabled]}
+        style={[styles.primaryButton]}
         onPress={() => setStep('profile')}
-        disabled={!(permissions.microphone && permissions.notifications && permissions.exactAlarms)}
       >
         <Text style={styles.primaryButtonText}>{tOnboarding('next')}</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={styles.skipButton}
+        onPress={() => setStep('profile')}
+      >
+        <Text style={styles.skipButtonText}>{tOnboarding('skipPermissions')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -326,7 +334,7 @@ export function OnboardingScreen() {
           <Text style={styles.progressText}>{tOnboarding('question', { current: currentQuestion + 1, total: CHRONOTYPE_QUESTIONS.length })}</Text>
           
           <View style={styles.questionCard}>
-            <Text style={styles.questionText}>{t(question.question)}</Text>
+            <Text style={styles.questionText}>{tOnboarding(question.question)}</Text>
             <View style={styles.optionsGrid}>
               {question.options.map((opt, i) => (
                 <TouchableOpacity
@@ -337,7 +345,7 @@ export function OnboardingScreen() {
                   ]}
                   onPress={() => handleChronotypeAnswer(question.id, opt.value)}
                 >
-                  <Text style={styles.optionLabel}>{t(opt.label)}</Text>
+                  <Text style={styles.optionLabel}>{tOnboarding(opt.label)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -345,17 +353,19 @@ export function OnboardingScreen() {
           
           <View style={styles.questionNav}>
             <TouchableOpacity 
-              style={[styles.secondaryButton, currentQuestion === 0 && styles.buttonDisabled]}
+              style={[styles.secondaryButton, styles.navButton, currentQuestion === 0 && styles.buttonDisabled]}
               onPress={goBackQuestion}
               disabled={currentQuestion === 0}
             >
               <Text style={styles.secondaryButtonText}>{tCommon('back')}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.primaryButton}
+              style={[styles.primaryButton, styles.navButton, !chronotypeAnswers[question.id] && styles.buttonDisabled]}
               onPress={() => {
-                if (currentQuestion === CHRONOTYPE_QUESTIONS.length - 1) {
-                  // Last question answered, chronotype is set
+                if (currentQuestion < CHRONOTYPE_QUESTIONS.length - 1) {
+                  setCurrentQuestion(prev => prev + 1);
+                } else {
+                  setCurrentQuestion(CHRONOTYPE_QUESTIONS.length);
                 }
               }}
               disabled={!chronotypeAnswers[question.id]}
@@ -383,10 +393,50 @@ export function OnboardingScreen() {
         
         <View style={styles.alarmSetup}>
           <Text style={styles.sectionTitle}>{tOnboarding('firstAlarm')}</Text>
-          <TouchableOpacity style={styles.timePicker} onPress={() => {}}>
+          <View style={styles.timePicker}>
             <Text style={styles.timePickerLabel}>{tOnboarding('wakeUpAt')}</Text>
+            <View style={styles.timeRow}>
+              <TouchableOpacity 
+                style={styles.timeButton}
+                onPress={() => {
+                  const [h, m] = firstAlarmTime.split(':').map(Number);
+                  setFirstAlarmTime(`${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeButtonText}>▲</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.timeButton}
+                onPress={() => {
+                  const [h, m] = firstAlarmTime.split(':').map(Number);
+                  setFirstAlarmTime(`${String(h).padStart(2, '0')}:${String((m + 5) % 60).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeButtonText}>▲</Text>
+              </TouchableOpacity>
+            </View>
             <Text style={styles.timePickerValue}>{firstAlarmTime}</Text>
-          </TouchableOpacity>
+            <View style={styles.timeRow}>
+              <TouchableOpacity 
+                style={styles.timeButton}
+                onPress={() => {
+                  const [h, m] = firstAlarmTime.split(':').map(Number);
+                  setFirstAlarmTime(`${String((h + 23) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeButtonText}>▼</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.timeButton}
+                onPress={() => {
+                  const [h, m] = firstAlarmTime.split(':').map(Number);
+                  setFirstAlarmTime(`${String(h).padStart(2, '0')}:${String((m + 55) % 60).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeButtonText}>▼</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
           <Text style={styles.helpText}>{tOnboarding('smartWakeWindow')}</Text>
         </View>
         
@@ -426,6 +476,7 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.5 },
   secondaryButton: { width: '100%', paddingVertical: 14, backgroundColor: '#1e293b', borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
   secondaryButtonText: { color: '#e2e8f0', fontSize: 16, fontWeight: '600' },
+  navButton: { flex: 1, marginTop: 16, width: 'auto' },
   
   permissionList: { width: '100%', gap: 12, marginBottom: 24 },
   permissionItem: { 
@@ -499,5 +550,10 @@ const styles = StyleSheet.create({
   },
   timePickerLabel: { fontSize: 14, color: '#8b9cb3', marginBottom: 4 },
   timePickerValue: { fontSize: 42, fontWeight: '700', color: '#fff' },
+  timeRow: { flexDirection: 'row', gap: 60, marginTop: 8 },
+  timeButton: { padding: 8 },
+  timeButtonText: { fontSize: 20, color: '#0ea5e9', fontWeight: '700' },
   helpText: { fontSize: 13, color: '#64748b', marginTop: 8, textAlign: 'center' },
+  skipButton: { width: '100%', paddingVertical: 14, alignItems: 'center', marginTop: 12 },
+  skipButtonText: { color: '#64748b', fontSize: 14, textDecorationLine: 'underline' },
 });

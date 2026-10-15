@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Ref
 import { useNavigation } from '@react-navigation/native';
 import { useI18n } from '@/modules/i18n';
 import { getUserProfileManager } from '@/modules/user-profile';
-import { formatDuration } from '@/modules/i18n';
 import type { RootStackParamList, SleepSession } from '@/types';
 
 type SleepAnalysisNav = React.NavigationProp<RootStackParamList, 'SleepAnalysis'>;

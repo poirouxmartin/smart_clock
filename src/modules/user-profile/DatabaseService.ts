@@ -345,6 +345,44 @@ export class DatabaseService {
     this.getDb().runSync('DELETE FROM user_profile WHERE id = ?', [CURRENT_USER_ID]);
   }
 
+  // ===== AUTH =====
+
+  async createAuthUser(email: string, name: string, password: string): Promise<{ id: string; email: string; name: string }> {
+    await this.ensureInit();
+    const id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    this.getDb().runSync(
+      'INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)',
+      [id, email, name, password, Date.now()]
+    );
+    return { id, email, name };
+  }
+
+  async authenticateUser(email: string, password: string): Promise<{ id: string; email: string; name: string } | null> {
+    await this.ensureInit();
+    const result = this.getDb().getFirstSync<{ id: string; email: string; name: string }>(
+      'SELECT id, email, name FROM users WHERE email = ? AND password_hash = ?',
+      [email, password]
+    );
+    return result || null;
+  }
+
+  async getAuthUser(): Promise<{ id: string; email: string; name: string } | null> {
+    await this.ensureInit();
+    const result = this.getDb().getFirstSync<{ id: string; email: string; name: string }>(
+      'SELECT id, email, name FROM users LIMIT 1'
+    );
+    return result || null;
+  }
+
+  async getAuthUserByEmail(email: string): Promise<{ id: string; email: string; name: string } | null> {
+    await this.ensureInit();
+    const result = this.getDb().getFirstSync<{ id: string; email: string; name: string }>(
+      'SELECT id, email, name FROM users WHERE email = ?',
+      [email]
+    );
+    return result || null;
+  }
+
   // ===== UTILITIES =====
 
   async vacuum(): Promise<void> {
