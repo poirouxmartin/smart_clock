@@ -16,7 +16,8 @@ export class SleepAnalyzer {
   private epochHistory: SleepEpochFeatures[] = [];
   private previousAudioSamples: Float32Array | null = null;
   private accelBuffer = { x: [] as number[], y: [] as number[], z: [] as number[], magnitude: [] as number[] };
-  private userBaseline: { rms: number; accel: number } | null = null;
+  // Partial: rms and accel are learned independently (see updateBaseline).
+  private userBaseline: Partial<{ rms: number; accel: number }> | null = null;
 
   constructor(config: Partial<LightSleepDetectionConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -67,7 +68,9 @@ export class SleepAnalyzer {
       const rmsValues = recent.map(f => f.rms).sort((a, b) => a - b);
       const medianRms = rmsValues[Math.floor(rmsValues.length / 2)];
       
-      if (!this.userBaseline || medianRms < this.userBaseline.rms) {
+      const currentRms = this.userBaseline?.rms;
+      // Unset (e.g. accel branch created the object first) must learn rms, not compare against undefined.
+      if (currentRms === undefined || medianRms < currentRms) {
         this.userBaseline = { ...this.userBaseline, rms: medianRms };
       }
     }
@@ -77,7 +80,8 @@ export class SleepAnalyzer {
       const magValues = recent.map(f => f.magnitude).sort((a, b) => a - b);
       const medianAccel = magValues[Math.floor(magValues.length / 2)];
       
-      if (!this.userBaseline || medianAccel < this.userBaseline.accel) {
+      const currentAccel = this.userBaseline?.accel;
+      if (currentAccel === undefined || medianAccel < currentAccel) {
         this.userBaseline = { ...this.userBaseline, accel: medianAccel };
       }
     }

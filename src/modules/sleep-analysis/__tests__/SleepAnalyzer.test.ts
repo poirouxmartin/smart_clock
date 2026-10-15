@@ -136,7 +136,7 @@ describe('audioFeatures', () => {
     it('should compute RMS correctly', () => {
       const samples = new Float32Array([0.1, -0.1, 0.1, -0.1]);
       const rms = computeRMS(samples);
-      expect(rms).toBe(0.1);
+      expect(rms).toBeCloseTo(0.1, 6); // Float32 storage: 0.1 -> 0.10000000149
     });
 
     it('should return 0 for silence', () => {
@@ -248,7 +248,7 @@ describe('accelFeatures', () => {
       const features = computeAccelFeatures(buffer, Date.now());
       
       expect(features.magnitude).toBeCloseTo(Math.sqrt(0.03));
-      expect(features.variance).toBe(0);
+      expect(features.variance).toBeCloseTo(0, 10); // floating-point residue (~1e-33) from the running mean
     });
   });
 

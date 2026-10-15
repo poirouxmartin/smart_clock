@@ -4,11 +4,28 @@ import { UserProfile, SleepSession, DEFAULT_USER_PROFILE } from '../types';
 
 describe('DatabaseService', () => {
   let db: ReturnType<typeof getDatabaseService>;
+  let manager: UserProfileManager;
+  let seq = 0;
 
-  beforeEach(() => {
+  // Persists a session through the DB layer. UserProfileManager normally fills id/userId/createdAt;
+  // createdAt = startTime so that retention (deleteOldSessions) works on the session's own age.
+  const saveSession = async (
+    database: DatabaseService,
+    s: Omit<SleepSession, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
+  ): Promise<SleepSession> => {
+    const full: SleepSession = { ...s, id: `test_session_${++seq}`, userId: 'current_user', createdAt: s.startTime, updatedAt: s.startTime };
+    await database.saveSleepSession(full);
+    return full;
+  };
+
+  beforeEach(async () => {
     db = getDatabaseService();
-    // Clear database
-    db.clearAllData();
+    manager = new UserProfileManager(db);
+    // Clear database; the app always has a profile (adaptive_learning has a FK to user_profile)
+    await db.clearAllData();
+    await db.getOrCreateProfile();
+    // App calls initialize() at startup; updateAdaptiveLearning is a no-op until profileCache is loaded
+    await manager.initialize();
   });
 
   describe('User Profile', () => {
@@ -35,19 +52,19 @@ describe('DatabaseService', () => {
       expect(saved.chronotype).toBe('morning');
       expect(saved.desiredCycles).toBe(6);
       
-      const retrieved = await db.getProfile();
+      const retrieved = (await db.getProfile())!;
       expect(retrieved.name).toBe('Test User');
       expect(retrieved.chronotype).toBe('morning');
     });
 
     it('should update sleep preferences', async () => {
-      await db.updateSleepPreferences({
+      await manager.updateSleepPreferences({
         chronotype: 'evening',
         desiredCycles: 6,
         fallAsleepDuration: 20 * 60 * 1000,
       });
       
-      const profile = await db.getProfile();
+      const profile = (await db.getProfile())!;
       expect(profile.chronotype).toBe('evening');
       expect(profile.desiredCycles).toBe(6);
       expect(profile.fallAsleepDuration).toBe(20 * 60 * 1000);
@@ -70,7 +87,7 @@ describe('DatabaseService', () => {
         moodRating: 4,
       };
       
-      const saved = await db.saveSleepSession(session);
+      const saved = await saveSession(db, session);
       
       expect(saved.id).toBeDefined();
       expect(saved.userId).toBe('current_user');
@@ -83,7 +100,7 @@ describe('DatabaseService', () => {
 
     it('should retrieve recent sessions', async () => {
       for (let i = 0; i < 3; i++) {
-        await db.saveSleepSession({
+        await saveSession(db, {
           startTime: Date.now() - (i + 1) * 24 * 60 * 60 * 1000,
           endTime: Date.now() - i * 24 * 60 * 60 * 1000,
           targetWakeWindow: { start: 0, end: 0 },
@@ -100,7 +117,7 @@ describe('DatabaseService', () => {
     });
 
     it('should rate sleep session', async () => {
-      const saved = await db.saveSleepSession({
+      const saved = await saveSession(db, {
         startTime: Date.now() - 8 * 60 * 60 * 1000,
         endTime: Date.now(),
         targetWakeWindow: { start: 0, end: 0 },
@@ -109,7 +126,7 @@ describe('DatabaseService', () => {
         cyclesCount: 5,
       });
       
-      await db.rateSleepSession(saved.id, 'great', 5, 'Excellent sleep!');
+      await manager.rateSleepSession(saved.id, 'great', 5, 'Excellent sleep!');
       
       const updated = await db.getSleepSession(saved.id);
       expect(updated?.qualityRating).toBe('great');
@@ -130,13 +147,13 @@ describe('DatabaseService', () => {
         regularBreathing: true,
       }));
       
-      const learning = await db.updateAdaptiveLearning(epochs);
+      const learning = await manager.updateAdaptiveLearning(epochs);
       
       expect(learning.rmsBaseline).toBeGreaterThan(0);
       expect(learning.accelBaseline).toBeGreaterThan(0);
       expect(learning.sampleCount).toBeGreaterThan(0);
       
-      const profile = await db.getProfile();
+      const profile = (await db.getProfile())!;
       expect(profile.learnedRmsBaseline).toBeCloseTo(learning.rmsBaseline, 2);
     });
   });
@@ -144,7 +161,7 @@ describe('DatabaseService', () => {
   describe('Trends & Analytics', () => {
     it('should calculate sleep trends', async () => {
       for (let i = 0; i < 7; i++) {
-        await db.saveSleepSession({
+        await saveSession(db, {
           startTime: Date.now() - (i + 1) * 24 * 60 * 60 * 1000,
           endTime: Date.now() - i * 24 * 60 * 60 * 1000,
           targetWakeWindow: { start: 0, end: 0 },
@@ -163,7 +180,7 @@ describe('DatabaseService', () => {
 
     it('should calculate weekly stats', async () => {
       for (let i = 0; i < 3; i++) {
-        await db.saveSleepSession({
+        await saveSession(db, {
           startTime: Date.now() - (i + 1) * 24 * 60 * 60 * 1000,
           endTime: Date.now() - i * 24 * 60 * 60 * 1000,
           targetWakeWindow: { start: 0, end: 0 },
@@ -186,7 +203,7 @@ describe('DatabaseService', () => {
   describe('Export/Import', () => {
     it('should export all data', async () => {
       await db.updateProfile({ name: 'Test User', chronotype: 'morning' });
-      await db.saveSleepSession({
+      await saveSession(db, {
         startTime: Date.now() - 8 * 60 * 60 * 1000,
         endTime: Date.now(),
         targetWakeWindow: { start: 0, end: 0 },
@@ -209,7 +226,7 @@ describe('DatabaseService', () => {
       const exportData = {
         version: 1,
         exportedAt: Date.now(),
-        profile: { ...DEFAULT_USER_PROFILE, name: 'Imported User', chronotype: 'evening' },
+        profile: { ...DEFAULT_USER_PROFILE, id: 'current_user', createdAt: Date.now(), updatedAt: Date.now(), name: 'Imported User', chronotype: 'evening' },
         sessions: [{
           id: 'imported_session',
           userId: 'current_user',
@@ -228,7 +245,7 @@ describe('DatabaseService', () => {
       
       await db.importData(JSON.stringify(exportData));
       
-      const profile = await db.getProfile();
+      const profile = (await db.getProfile())!;
       expect(profile.name).toBe('Imported User');
       expect(profile.chronotype).toBe('evening');
       
@@ -240,7 +257,7 @@ describe('DatabaseService', () => {
 
   describe('Cleanup', () => {
     it('should delete old sessions', async () => {
-      await db.saveSleepSession({
+      await saveSession(db, {
         startTime: Date.now() - 400 * 24 * 60 * 60 * 1000, // Old session
         endTime: Date.now() - 399 * 24 * 60 * 60 * 1000,
         targetWakeWindow: { start: 0, end: 0 },
@@ -250,7 +267,7 @@ describe('DatabaseService', () => {
         qualityRating: 'good',
       });
       
-      await db.saveSleepSession({
+      await saveSession(db, {
         startTime: Date.now() - 10 * 24 * 60 * 60 * 1000, // Recent session
         endTime: Date.now() - 9 * 24 * 60 * 60 * 1000,
         targetWakeWindow: { start: 0, end: 0 },
@@ -269,7 +286,7 @@ describe('DatabaseService', () => {
 
     it('should clear all data', async () => {
       await db.updateProfile({ name: 'Test' });
-      await db.saveSleepSession({
+      await saveSession(db, {
         startTime: Date.now() - 8 * 60 * 60 * 1000,
         endTime: Date.now(),
         targetWakeWindow: { start: 0, end: 0 },
@@ -281,9 +298,7 @@ describe('DatabaseService', () => {
       
       await db.clearAllData();
       
-      const profile = await db.getProfile();
-      expect(profile.name).toBeUndefined();
-      expect(profile.onboardingComplete).toBe(false);
+      expect(await db.getProfile()).toBeNull();
       
       const sessions = await db.getRecentSleepSessions(10);
       expect(sessions.length).toBe(0);

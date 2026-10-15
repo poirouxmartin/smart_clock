@@ -75,6 +75,8 @@ export class AlarmEngine {
   }
 
   removeAlarm(alarmId: string): void {
+    const alarm = this.enabledAlarms.get(alarmId);
+    if (alarm) this.cancelTimers(alarm);
     this.enabledAlarms.delete(alarmId);
     this.monitor.stopMonitoring(alarmId);
     if (this.foregroundService) {
@@ -212,15 +214,15 @@ export class AlarmEngine {
     return this.monitor.getTimeUntilTrigger(alarmId);
   }
 
+  // Timers are stored on the alarm object by scheduleAlarm/scheduleNextOccurrence.
+  private cancelTimers(alarm: AlarmConfig): void {
+    clearTimeout((alarm as any)._timeoutId);
+    clearTimeout((alarm as any)._nextTimeoutId);
+  }
+
   async shutdown(): Promise<void> {
-    for (const alarmId of this.enabledAlarms.keys()) {
-      const alarm = this.enabledAlarms.get(alarmId);
-      if (alarm && (alarm as any)._timeoutId) {
-        clearTimeout((alarm as any)._timeoutId);
-      }
-      if (alarm && (alarm as any)._nextTimeoutId) {
-        clearTimeout((alarm as any)._nextTimeoutId);
-      }
+    for (const alarm of this.enabledAlarms.values()) {
+      this.cancelTimers(alarm);
     }
     
     this.monitor.shutdown();
