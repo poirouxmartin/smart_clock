@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { I18nService, getI18nService } from './I18nService';
+import { getI18nService } from './I18nService';
 import { SupportedLocale, SUPPORTED_LOCALES, LocaleConfig } from './types';
 
 export function useI18n() {

@@ -1,293 +1,270 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { useNavigation, useFocusEffect, type NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Notifications from 'expo-notifications';
 import { useI18n } from '@/modules/i18n';
-import { getUserProfileManager } from '@/modules/user-profile';
-import { createBedtimeCalculator } from '@/modules/bedtime-calculator';
-import { getAlarmEngine } from '@/modules/alarm-engine';
+import { getDatabaseService } from '@/modules/user-profile/DatabaseService';
+import { NightRepository } from '@/modules/night/NightRepository';
+import type { NightSummary } from '@/modules/night/nightAnalysis';
+import { SmartAlarm } from '../../modules/smart-alarm';
+import type { NightStatus, PermissionStatus } from '../../modules/smart-alarm';
 import { Colors, Typography, Spacing, Radius } from '@/theme';
-import { useSlideUp } from '@/hooks/useAnimatedStyles';
-import type { RootStackParamList, SleepSession } from '@/types';
+import type { RootStackParamList } from '@/types';
 
-type HomeNav = React.NavigationProp<RootStackParamList, 'Home'>;
+type HomeNav = NavigationProp<RootStackParamList>;
+
+const SETTINGS_KEY = 'night_settings';
+const WINDOW_CHOICES = [10, 20, 30, 45];
+const DEFAULT_SETTINGS = { targetMinutes: 7 * 60 + 30, windowMinutes: 30 };
+
+type NightSettings = typeof DEFAULT_SETTINGS;
+
+/** Prochaine occurrence de HH:MM : aujourd'hui si encore dans le futur, sinon demain. */
+function nextTargetMs(minutesOfDay: number, now: Date = new Date()): number {
+  const d = new Date(now);
+  d.setHours(Math.floor(minutesOfDay / 60), minutesOfDay % 60, 0, 0);
+  if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const hm = (ms: number) => {
+  const d = new Date(ms);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+type PermKey = keyof PermissionStatus;
+
+const PERM_ROWS: Array<{ key: PermKey; labelKey: string; required: boolean }> = [
+  { key: 'exactAlarm', labelKey: 'permExact', required: true },
+  { key: 'fullScreenIntent', labelKey: 'permFullScreen', required: true },
+  { key: 'notifications', labelKey: 'permNotifications', required: true },
+  { key: 'ignoringBatteryOptimizations', labelKey: 'permBattery', required: false },
+];
 
 export function HomeScreen() {
   const navigation = useNavigation<HomeNav>();
-  const { tHome, tAlarm, tSleep, formatTime, formatDuration, currentLocale } = useI18n();
+  const { t, formatTime, currentLocale } = useI18n();
+  const tn = (key: string, options?: Record<string, any>) => t(key, options, 'night');
 
-  const [timeString, setTimeString] = useState('');
-  const [dateString, setDateString] = useState('');
-  const [nextAlarm, setNextAlarm] = useState<{ label: string; windowStart: string; windowEnd: string } | null>(null);
-  const [bedtime, setBedtime] = useState<{ time: string; cycles: number } | null>(null);
-  const [lastNight, setLastNight] = useState<SleepSession | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [onboardingDone, setOnboardingDone] = useState(false);
-  const pulseAnim = useSharedValue(1);
+  const [clock, setClock] = useState('');
+  const [settings, setSettings] = useState<NightSettings>(DEFAULT_SETTINGS);
+  const [permissions, setPermissions] = useState<PermissionStatus | null>(null);
+  const [status, setStatus] = useState<NightStatus | null>(null);
+  const [latest, setLatest] = useState<NightSummary | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const headerAnim = useSlideUp(0, 600, 40);
-  const alarmCardAnim = useSlideUp(150, 600, 30);
-  const bedtimeCardAnim = useSlideUp(250, 600, 30);
-  const actionsAnim = useSlideUp(350, 600, 30);
-  const lastNightAnim = useSlideUp(450, 600, 30);
-
-  const loadData = useCallback(async () => {
-    try {
-      const profileManager = getUserProfileManager();
-      const profile = profileManager.getProfile();
-      if (!profile?.onboardingComplete) {
-        navigation.replace('EnrichedOnboarding');
-        return;
-      }
-      setOnboardingDone(true);
-
-      const bedtimeCalc = createBedtimeCalculator();
-      const alarmEngine = getAlarmEngine();
-
-      const alarms = alarmEngine.getEnabledAlarms();
-      if (alarms.length > 0) {
-        const next = alarmEngine.getNextWakeTime(alarms[0].id);
-        if (next) {
-          const date = new Date(next);
-          const endDate = new Date(next + 90 * 60 * 1000);
-          setNextAlarm({
-            label: alarms[0].label,
-            windowStart: formatTime(date),
-            windowEnd: formatTime(endDate),
-          });
-        }
-      }
-
-      if (profile) {
-        const wakeTime = new Date();
-        wakeTime.setHours(7, 30, 0, 0);
-        if (wakeTime <= new Date()) wakeTime.setDate(wakeTime.getDate() + 1);
-        const result = bedtimeCalc.calculate({
-          targetWakeTime: wakeTime.getTime(),
-          sleepCycleLength: profile.sleepCycleLength,
-          desiredCycles: profile.desiredCycles,
-          fallAsleepDuration: profile.fallAsleepDuration,
-          chronotype: profile.chronotype,
-        });
-        setBedtime({ time: formatTime(new Date(result.idealBedtime)), cycles: result.cycles });
-      }
-
-      const sessions = await profileManager.getRecentSessions(1);
-      if (sessions.length > 0) setLastNight(sessions[0]);
-    } catch (e) {
-      console.error('HomeScreen loadData error:', e);
-    }
+  useEffect(() => {
+    const update = () => setClock(formatTime(new Date()));
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
   }, [formatTime]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    pulseAnim.value = withSpring(1.05, { damping: 10 }, () => {
-      pulseAnim.value = withSpring(1, { damping: 10 });
+  useEffect(() => {
+    getDatabaseService()
+      .getSetting<NightSettings>(SETTINGS_KEY, DEFAULT_SETTINGS)
+      .then(saved => setSettings({ ...DEFAULT_SETTINGS, ...saved }))
+      .catch(e => console.error('Load night settings error:', e));
+  }, []);
+
+  const updateSettings = useCallback((partial: Partial<NightSettings>) => {
+    setSettings(prev => {
+      const next = { ...prev, ...partial };
+      getDatabaseService()
+        .setSetting(SETTINGS_KEY, next)
+        .catch(e => console.error('Save night settings error:', e));
+      return next;
     });
-    await loadData();
-    setRefreshing(false);
-  }, [loadData]);
+  }, []);
 
-  useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      setTimeString(formatTime(now));
-      setDateString(now.toLocaleDateString(currentLocale, { weekday: 'long', day: 'numeric', month: 'long' }));
-    };
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, [formatTime, currentLocale]);
-
-  useEffect(() => {
-    loadData();
-    headerAnim.trigger();
-    alarmCardAnim.trigger();
-    bedtimeCardAnim.trigger();
-    actionsAnim.trigger();
-    lastNightAnim.trigger();
-  }, [loadData]);
-
-  if (!onboardingDone) {
-    return (
-      <LinearGradient colors={['#0a0e1a', '#0f172a']} style={styles.container}>
-        <View style={styles.loading}>
-          <Ionicons name="moon" size={48} color={Colors.primary} />
-          <Text style={styles.loadingText}>Chargement...</Text>
-        </View>
-      </LinearGradient>
-    );
-  }
-
-  const formatSleepDuration = (ms?: number) => {
-    if (!ms) return '--';
-    return formatDuration(ms);
+  const adjustTarget = (delta: number) => {
+    const next = (((settings.targetMinutes + delta) % 1440) + 1440) % 1440;
+    updateSettings({ targetMinutes: next });
   };
 
-  const getQualityColor = (rating?: SleepSession['qualityRating']) => {
-    if (!rating) return Colors.textDim;
-    const map: Record<SleepSession['qualityRating'], string> = {
-      great: Colors.success,
-      good: Colors.successDark,
-      ok: Colors.warning,
-      poor: Colors.danger,
-    };
-    return map[rating];
+  const refreshPermissions = useCallback(async () => {
+    try {
+      setPermissions(await SmartAlarm.getPermissions());
+    } catch (e) {
+      console.error('getPermissions error:', e);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        await refreshPermissions();
+        try {
+          const st = await SmartAlarm.getStatus();
+          if (!active) return;
+          setStatus(st);
+          const summaries = await NightRepository.syncNights();
+          if (!active) return;
+          setLatest(summaries[0] ?? null);
+          if (st.state === 'done' && !st.summarySeen && st.sessionId) {
+            await SmartAlarm.markSummarySeen();
+            navigation.navigate('NightSummary', { sessionId: st.sessionId });
+          }
+        } catch (e) {
+          console.error('HomeScreen focus error:', e);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [navigation, refreshPermissions])
+  );
+
+  const fixPermission = async (key: PermKey) => {
+    try {
+      if (key === 'exactAlarm') await SmartAlarm.openExactAlarmSettings();
+      else if (key === 'fullScreenIntent') await SmartAlarm.openFullScreenIntentSettings();
+      else if (key === 'notifications') await Notifications.requestPermissionsAsync();
+      else await SmartAlarm.requestIgnoreBatteryOptimizations();
+    } catch (e) {
+      console.error('Fix permission error:', e);
+    }
+    await refreshPermissions();
   };
 
-  const getQualityLabel = (rating?: SleepSession['qualityRating']) => {
-    if (!rating) return '--';
-    const map: Record<SleepSession['qualityRating'], string> = {
-      great: 'Excellente',
-      good: 'Bonne',
-      ok: 'Moyenne',
-      poor: 'Mauvaise',
-    };
-    return map[rating];
+  const onStart = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const targetMs = nextTargetMs(settings.targetMinutes);
+      const { exactAlarm } = await SmartAlarm.startNight(targetMs, settings.windowMinutes);
+      if (!exactAlarm) {
+        // Inexact fallback can drift by minutes in Doze: tell the user to grant the permission.
+        Alert.alert(tn('permExact'), tn('exactAlarmMissing'));
+      }
+      navigation.navigate('SleepMode');
+    } catch (e) {
+      console.error('startNight error:', e);
+      Alert.alert(tn('startError'), tn('errorGeneric'));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const getQualityIcon = (rating?: SleepSession['qualityRating']): keyof typeof Ionicons.glyphMap => {
-    if (!rating) return 'help-circle-outline';
-    const map: Record<SleepSession['qualityRating'], keyof typeof Ionicons.glyphMap> = {
-      great: 'star',
-      good: 'thumbs-up',
-      ok: 'remove-circle-outline',
-      poor: 'alert-circle-outline',
-    };
-    return map[rating];
+  const onTestRing = async () => {
+    try {
+      await SmartAlarm.testRing(10);
+    } catch (e) {
+      console.error('testRing error:', e);
+    }
   };
+
+  const targetMs = nextTargetMs(settings.targetMinutes);
+  const windowStartMs = targetMs - settings.windowMinutes * 60000;
+  const missingPerms = permissions
+    ? PERM_ROWS.filter(row => permissions[row.key] === false)
+    : [];
+  const nightInProgress = status?.state === 'tracking';
 
   return (
     <LinearGradient colors={['#0a0e1a', '#0f172a', '#1e1b4b']} style={styles.container}>
       <SafeAreaView style={styles.safe}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View style={[styles.header, headerAnim.animatedStyle]}>
-            <Ionicons name="moon" size={20} color={Colors.accent} style={{ marginBottom: 8 }} />
-            <Animated.Text style={styles.time}>{timeString}</Animated.Text>
-            <Animated.Text style={styles.date}>{dateString}</Animated.Text>
-          </Animated.View>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <Text style={styles.clock}>{clock}</Text>
+          </View>
 
-          {nextAlarm && (
-            <Animated.View style={[alarmCardAnim.animatedStyle]}>
-              <LinearGradient colors={[Colors.bgCard, Colors.bgCardAlt]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.alarmGradient}>
-                <View style={styles.alarmHeader}>
-                  <View style={styles.alarmTitleRow}>
-                    <Ionicons name="alarm-outline" size={18} color={Colors.primary} />
-                    <Text style={styles.alarmTitleText}>Prochain réveil</Text>
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="alarm-outline" size={18} color={Colors.primary} />
+              <Text style={styles.cardTitle}>{tn('smartAlarm')}</Text>
+            </View>
+
+            <Text style={styles.label}>{tn('target')}</Text>
+            <View style={styles.stepperRow}>
+              <Stepper value={pad(Math.floor(settings.targetMinutes / 60))} onMinus={() => adjustTarget(-60)} onPlus={() => adjustTarget(60)} />
+              <Text style={styles.colon}>:</Text>
+              <Stepper value={pad(settings.targetMinutes % 60)} onMinus={() => adjustTarget(-5)} onPlus={() => adjustTarget(5)} />
+            </View>
+
+            <Text style={styles.label}>{tn('window')}</Text>
+            <View style={styles.chipRow}>
+              {WINDOW_CHOICES.map(min => {
+                const active = settings.windowMinutes === min;
+                return (
+                  <TouchableOpacity
+                    key={min}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => updateSettings({ windowMinutes: min })}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{tn('windowChip', { min })}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={styles.windowLine}>
+              {tn('windowLine', { from: hm(windowStartMs), to: hm(targetMs) })}
+            </Text>
+          </View>
+
+          {missingPerms.length > 0 && (
+            <View style={[styles.card, styles.permCard]}>
+              <Text style={styles.cardTitle}>{tn('permissionsTitle')}</Text>
+              {missingPerms.map(row => (
+                <View key={row.key} style={styles.permRow}>
+                  <View style={styles.permInfo}>
+                    <Text style={styles.permLabel}>{tn(row.labelKey)}</Text>
+                    <Text style={[styles.permTag, { color: row.required ? Colors.warning : Colors.textMuted }]}>
+                      {row.required ? tn('required') : tn('recommended')}
+                    </Text>
                   </View>
-                  <View style={styles.smartBadge}>
-                    <Ionicons name="sparkles" size={12} color="#fff" />
-                    <Text style={styles.smartBadgeText}>SMART</Text>
-                  </View>
+                  <TouchableOpacity style={styles.fixButton} onPress={() => fixPermission(row.key)}>
+                    <Text style={styles.fixButtonText}>{tn('fix')}</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.alarmTime}>{nextAlarm.windowStart} — {nextAlarm.windowEnd}</Text>
-                <Text style={styles.alarmSubtitle}>Fenêtre intelligente 1h30</Text>
-                <View style={styles.alarmLabelRow}>
-                  <Ionicons name="label-outline" size={14} color={Colors.primaryLight} />
-                  <Text style={styles.alarmLabel}>{nextAlarm.label}</Text>
-                </View>
-              </LinearGradient>
-            </Animated.View>
+              ))}
+            </View>
           )}
 
-          {bedtime && (
-            <Animated.View style={[bedtimeCardAnim.animatedStyle]}>
-              <LinearGradient colors={[Colors.bgCardAlt, Colors.bgCard]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bedtimeGradient}>
-                <View style={styles.bedtimeHeader}>
-                  <Ionicons name="bed-outline" size={18} color={Colors.accent} />
-                  <Text style={styles.bedtimeTitleText}>Heure de coucher</Text>
-                </View>
-                <Text style={styles.bedtime}>{bedtime.time}</Text>
-                <Text style={styles.bedtimeSubtitle}>{bedtime.cycles} cycles complets recommandés</Text>
+          {nightInProgress ? (
+            <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('SleepMode')}>
+              <LinearGradient colors={['#0ea5e9', '#7c3aed']} style={styles.primaryGradient}>
+                <Ionicons name="moon" size={22} color="#fff" />
+                <Text style={styles.primaryText}>{tn('resume')}</Text>
               </LinearGradient>
-            </Animated.View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.primaryButton} onPress={onStart} disabled={busy}>
+              <LinearGradient colors={['#0ea5e9', '#7c3aed']} style={styles.primaryGradient}>
+                <Ionicons name="moon" size={22} color="#fff" />
+                <Text style={styles.primaryText}>{tn('start')}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           )}
 
-          <Animated.View style={[styles.actionsGrid, actionsAnim.animatedStyle]}>
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('SleepMode')}>
-              <LinearGradient colors={[Colors.purple + '30', Colors.purple + '10']} style={styles.actionCardInner}>
-                <View style={[styles.actionIcon, { backgroundColor: Colors.purple + '30' }]}>
-                  <Ionicons name="moon" size={24} color={Colors.purple} />
-                </View>
-                <Text style={styles.actionLabel}>Mode{'\n'}Sommeil</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Stats')}>
-              <LinearGradient colors={[Colors.primary + '30', Colors.primary + '10']} style={styles.actionCardInner}>
-                <View style={[styles.actionIcon, { backgroundColor: Colors.primary + '30' }]}>
-                  <Ionicons name="bar-chart" size={24} color={Colors.primary} />
-                </View>
-                <Text style={styles.actionLabel}>Stats &{'\n'}Graphiques</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AlarmSetup')}>
-              <LinearGradient colors={[Colors.success + '30', Colors.success + '10']} style={styles.actionCardInner}>
-                <View style={[styles.actionIcon, { backgroundColor: Colors.success + '30' }]}>
-                  <Ionicons name="alarm-outline" size={24} color={Colors.success} />
-                </View>
-                <Text style={styles.actionLabel}>Nouveau{'\n'}Réveil</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('SleepAnalysis')}>
-              <LinearGradient colors={[Colors.warning + '30', Colors.warning + '10']} style={styles.actionCardInner}>
-                <View style={[styles.actionIcon, { backgroundColor: Colors.warning + '30' }]}>
-                  <Ionicons name="analytics-outline" size={24} color={Colors.warning} />
-                </View>
-                <Text style={styles.actionLabel}>Analyse{'\n'}Sommeil</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{tn('lastNight')}</Text>
+            {latest ? (
+              <>
+                <Text style={styles.lastDate}>{new Date(latest.startedAtMs).toLocaleDateString(currentLocale, { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('NightSummary', { sessionId: latest.sessionId })}>
+                  <Text style={styles.secondaryText}>{tn('viewSummary')}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text style={styles.muted}>{tn('noNightYet')}</Text>
+            )}
+          </View>
 
-          {lastNight && (
-            <Animated.View style={[lastNightAnim.animatedStyle]}>
-              <LinearGradient colors={[Colors.bgCard, Colors.bgCard]} style={styles.lastNightCard}>
-                <View style={styles.lastNightHeader}>
-                  <View style={styles.lastNightTitleRow}>
-                    <Ionicons name="cloudy-night" size={18} color={Colors.textMuted} />
-                    <Text style={styles.lastNightTitle}>Hier soir</Text>
-                  </View>
-                  <View style={[styles.qualityBadge, { backgroundColor: getQualityColor(lastNight.qualityRating) + '20' }]}>
-                    <Ionicons name={getQualityIcon(lastNight.qualityRating)} size={14} color={getQualityColor(lastNight.qualityRating)} />
-                    <Text style={[styles.qualityText, { color: getQualityColor(lastNight.qualityRating) }]}>{getQualityLabel(lastNight.qualityRating)}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.statsGrid}>
-                  <View style={styles.statItem}>
-                    <Ionicons name="time-outline" size={20} color={Colors.primary} />
-                    <Text style={styles.statValue}>{formatSleepDuration(lastNight.totalSleepTime)}</Text>
-                    <Text style={styles.statLabel}>Durée</Text>
-                  </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statItem}>
-                    <Ionicons name="pulse-outline" size={20} color={Colors.success} />
-                    <Text style={styles.statValue}>{lastNight.sleepEfficiency ? `${lastNight.sleepEfficiency}%` : '--'}</Text>
-                    <Text style={styles.statLabel}>Efficacité</Text>
-                  </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statItem}>
-                    <Ionicons name="repeat-outline" size={20} color={Colors.accent} />
-                    <Text style={styles.statValue}>{lastNight.cyclesCount || '--'}</Text>
-                    <Text style={styles.statLabel}>Cycles</Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Animated.View>
-          )}
+          <TouchableOpacity style={styles.testLink} onPress={onTestRing}>
+            <Text style={styles.testLinkText}>{tn('testRing')}</Text>
+          </TouchableOpacity>
         </ScrollView>
 
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('SleepMode')}>
-            <Ionicons name="moon" size={22} color={Colors.accent} />
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.bottomButton, styles.bottomButtonCenter]} onPress={() => navigation.navigate('AlarmSetup')}>
-            <Ionicons name="add" size={28} color="#fff" />
+          <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Stats')}>
+            <Ionicons name="bar-chart" size={22} color={Colors.textMuted} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Settings')}>
             <Ionicons name="settings-outline" size={22} color={Colors.textMuted} />
@@ -298,54 +275,65 @@ export function HomeScreen() {
   );
 }
 
+function Stepper({ value, onMinus, onPlus }: { value: string; onMinus: () => void; onPlus: () => void }) {
+  return (
+    <View style={styles.stepper}>
+      <TouchableOpacity style={styles.stepButton} onPress={onMinus}>
+        <Ionicons name="remove" size={20} color={Colors.text} />
+      </TouchableOpacity>
+      <Text style={styles.stepValue}>{value}</Text>
+      <TouchableOpacity style={styles.stepButton} onPress={onPlus}>
+        <Ionicons name="add" size={20} color={Colors.text} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safe: { flex: 1 },
   scrollContent: { padding: Spacing.xl, paddingBottom: 120 },
-  header: { alignItems: 'center', marginBottom: Spacing.xxxl },
-  time: { ...Typography.clock, textAlign: 'center' },
-  date: { ...Typography.body, color: Colors.textMuted, textTransform: 'capitalize', marginTop: Spacing.xs },
+  header: { alignItems: 'center', marginBottom: Spacing.xxl },
+  clock: { ...Typography.clock, fontSize: 56, textAlign: 'center' },
 
-  alarmGradient: { borderRadius: Radius.xl, padding: Spacing.xxl, borderWidth: 1, borderColor: Colors.primary + '30' },
-  alarmHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
-  alarmTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  alarmTitleText: { ...Typography.label },
-  smartBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary, paddingHorizontal: Spacing.md, paddingVertical: 4, borderRadius: Radius.full },
-  smartBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 1 },
-  alarmTime: { fontSize: 36, fontWeight: '600', color: Colors.text },
-  alarmSubtitle: { ...Typography.caption, marginTop: Spacing.xs },
-  alarmLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.md },
-  alarmLabel: { ...Typography.bodySmall, color: Colors.primaryLight, fontWeight: '500' },
+  card: { backgroundColor: Colors.bgCard, borderRadius: Radius.xl, padding: Spacing.xl, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
+  cardTitle: { ...Typography.label, color: Colors.text, marginBottom: Spacing.sm },
+  label: { ...Typography.caption, marginTop: Spacing.md, marginBottom: Spacing.xs },
+  muted: { ...Typography.bodySmall, color: Colors.textMuted },
 
-  bedtimeGradient: { borderRadius: Radius.xl, padding: Spacing.xxl, marginTop: Spacing.md, borderWidth: 1, borderColor: Colors.accent + '30' },
-  bedtimeHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
-  bedtimeTitleText: { ...Typography.label, color: Colors.accent },
-  bedtime: { fontSize: 42, fontWeight: '700', color: Colors.accent },
-  bedtimeSubtitle: { ...Typography.caption, marginTop: Spacing.xs },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  stepButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.bgSurface, alignItems: 'center', justifyContent: 'center' },
+  stepValue: { fontSize: 44, fontWeight: '300', color: Colors.text, minWidth: 64, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  colon: { fontSize: 40, fontWeight: '300', color: Colors.textMuted },
 
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginTop: Spacing.xl },
-  actionCard: { width: '47%', borderRadius: Radius.xl, overflow: 'hidden' },
-  actionCardInner: { padding: Spacing.xl, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, minHeight: 110, justifyContent: 'center' },
-  actionIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
-  actionLabel: { ...Typography.bodySmall, fontWeight: '600', textAlign: 'center', lineHeight: 18 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  chip: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.borderLight },
+  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  chipText: { ...Typography.bodySmall, color: Colors.textSecondary },
+  chipTextActive: { color: '#fff', fontWeight: '600' },
+  windowLine: { ...Typography.body, color: Colors.primaryLight, marginTop: Spacing.lg, textAlign: 'center', fontWeight: '500' },
 
-  lastNightCard: { borderRadius: Radius.xl, padding: Spacing.xxl, marginTop: Spacing.md, borderWidth: 1, borderColor: Colors.border },
-  lastNightHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
-  lastNightTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  lastNightTitle: { ...Typography.label },
-  qualityBadge: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: Radius.full },
-  qualityText: { fontSize: 13, fontWeight: '600' },
+  permCard: { borderColor: Colors.warning + '60' },
+  permRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
+  permInfo: { flex: 1 },
+  permLabel: { ...Typography.bodySmall, color: Colors.text },
+  permTag: { fontSize: 12, marginTop: 2 },
+  fixButton: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.full, backgroundColor: Colors.bgSurface },
+  fixButtonText: { ...Typography.bodySmall, color: Colors.primaryLight, fontWeight: '600' },
 
-  statsGrid: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
-  statItem: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 22, fontWeight: '700', color: Colors.text, marginTop: Spacing.sm },
-  statLabel: { ...Typography.caption, marginTop: Spacing.xs },
-  statDivider: { width: 1, height: 40, backgroundColor: Colors.border },
+  primaryButton: { borderRadius: Radius.xl, overflow: 'hidden', marginBottom: Spacing.lg },
+  primaryGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: Spacing.md },
+  primaryText: { ...Typography.h3, color: '#fff' },
 
-  bottomBar: { position: 'absolute', bottom: 24, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32, paddingHorizontal: Spacing.xxxl },
+  lastDate: { ...Typography.body, color: Colors.text, textTransform: 'capitalize', marginTop: Spacing.xs },
+  secondaryButton: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.md },
+  secondaryText: { ...Typography.bodySmall, color: Colors.primary, fontWeight: '600' },
+
+  testLink: { alignItems: 'center', paddingVertical: Spacing.md },
+  testLinkText: { ...Typography.bodySmall, color: Colors.textMuted, textDecorationLine: 'underline' },
+
+  bottomBar: { position: 'absolute', bottom: 24, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32 },
   bottomButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
-  bottomButtonCenter: { width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primary, borderWidth: 0 },
-
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.md },
-  loadingText: { ...Typography.body, color: Colors.textMuted },
 });

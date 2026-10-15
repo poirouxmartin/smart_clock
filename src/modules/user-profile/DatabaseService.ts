@@ -1,5 +1,6 @@
 import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import { UserProfile, SleepSession, SleepTrend, AdaptiveLearningData, DEFAULT_USER_PROFILE, DB_SCHEMA } from './types';
+import type { NightSummary } from '../night/nightAnalysis';
 
 const DB_NAME = 'smart_clock.db';
 const CURRENT_USER_ID = 'current_user';
@@ -302,6 +303,34 @@ export class DatabaseService {
       `INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)`,
       [key, JSON.stringify(value), Date.now()]
     );
+  }
+
+  // ===== NIGHT SUMMARIES =====
+
+  async saveNightSummary(summary: NightSummary): Promise<void> {
+    await this.ensureInit();
+    this.getDb().runSync(
+      'INSERT OR REPLACE INTO night_summaries (session_id, data, created_at) VALUES (?, ?, ?)',
+      [summary.sessionId, JSON.stringify(summary), summary.startedAtMs]
+    );
+  }
+
+  async getNightSummary(sessionId: string): Promise<NightSummary | null> {
+    await this.ensureInit();
+    const result = this.getDb().getFirstSync<{ data: string }>(
+      'SELECT data FROM night_summaries WHERE session_id = ?',
+      [sessionId]
+    );
+    return result ? JSON.parse(result.data) : null;
+  }
+
+  async getNightSummaries(limit: number = 30): Promise<NightSummary[]> {
+    await this.ensureInit();
+    const results = this.getDb().getAllSync<{ data: string }>(
+      'SELECT data FROM night_summaries ORDER BY created_at DESC LIMIT ?',
+      [limit]
+    );
+    return results.map(r => JSON.parse(r.data));
   }
 
   // ===== EXPORT / IMPORT =====

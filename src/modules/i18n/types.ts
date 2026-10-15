@@ -39,10 +39,12 @@ export type TranslationNamespace =
   | 'lights' 
   | 'profile' 
   | 'onboarding' 
-  | 'errors';
+  | 'errors'
+  | 'night';
 
 export interface TranslationResources {
   [locale: string]: {
-    [namespace: string]: Record<string, string>;
+    // Namespaces are nested (e.g. onboarding.chronotype.*), so leaves are not all strings.
+    [namespace: string]: Record<string, unknown>;
   };
 }

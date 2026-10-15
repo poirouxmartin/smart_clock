@@ -1,13 +1,13 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import * as Localization from 'expo-localization';
-import { SupportedLocale, DEFAULT_LOCALE, FALLBACK_LOCALE, SUPPORTED_LOCALES, TranslationResources } from './types';
+import { SupportedLocale, LocaleConfig, DEFAULT_LOCALE, FALLBACK_LOCALE, SUPPORTED_LOCALES, TranslationResources } from './types';
 import { fr } from './locales/fr';
 import { en } from './locales/en';
 
 const resources: TranslationResources = {
-  fr: { common: fr.common, home: fr.home, alarm: fr.alarm, sleep: fr.sleep, settings: fr.settings, notifications: fr.notifications, sounds: fr.sounds, lights: fr.lights, profile: fr.profile, onboarding: fr.onboarding, errors: fr.errors },
-  en: { common: en.common, home: en.home, alarm: en.alarm, sleep: en.sleep, settings: en.settings, notifications: en.notifications, sounds: en.sounds, lights: en.lights, profile: en.profile, onboarding: en.onboarding, errors: en.errors },
+  fr: { common: fr.common, home: fr.home, alarm: fr.alarm, sleep: fr.sleep, settings: fr.settings, notifications: fr.notifications, sounds: fr.sounds, lights: fr.lights, profile: fr.profile, onboarding: fr.onboarding, errors: fr.errors, night: fr.night },
+  en: { common: en.common, home: en.home, alarm: en.alarm, sleep: en.sleep, settings: en.settings, notifications: en.notifications, sounds: en.sounds, lights: en.lights, profile: en.profile, onboarding: en.onboarding, errors: en.errors, night: en.night },
 };
 
 class I18nService {
@@ -29,7 +29,7 @@ class I18nService {
         lng: initialLocale,
         fallbackLng: FALLBACK_LOCALE,
         defaultNS: 'common',
-        ns: ['common', 'home', 'alarm', 'sleep', 'settings', 'notifications', 'sounds', 'lights', 'profile', 'onboarding', 'errors'],
+        ns: ['common', 'home', 'alarm', 'sleep', 'settings', 'notifications', 'sounds', 'lights', 'profile', 'onboarding', 'errors', 'night'],
         interpolation: {
           escapeValue: false,
         },
@@ -69,8 +69,8 @@ class I18nService {
 
   private async getSavedLocale(): Promise<SupportedLocale | null> {
     try {
-      const { getSetting } = await import('@/modules/user-profile');
-      const saved = await getSetting<string>('app_locale', null);
+      const { getDatabaseService } = await import('@/modules/user-profile');
+      const saved = await getDatabaseService().getSetting<string | null>('app_locale', null);
       if (saved && SUPPORTED_LOCALES[saved as SupportedLocale]) {
         return saved as SupportedLocale;
       }
@@ -80,8 +80,8 @@ class I18nService {
 
   private async saveLocale(locale: SupportedLocale): Promise<void> {
     try {
-      const { setSetting } = await import('@/modules/user-profile');
-      await setSetting('app_locale', locale);
+      const { getDatabaseService } = await import('@/modules/user-profile');
+      await getDatabaseService().setSetting('app_locale', locale);
     } catch (e) {
       console.warn('[I18nService] Failed to save locale:', e);
     }
@@ -91,7 +91,7 @@ class I18nService {
     return this.currentLocale;
   }
 
-  getLocaleConfig(locale?: SupportedLocale): SUPPORTED_LOCALES[SupportedLocale] {
+  getLocaleConfig(locale?: SupportedLocale): LocaleConfig {
     return SUPPORTED_LOCALES[locale || this.currentLocale];
   }
 

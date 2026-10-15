@@ -192,6 +192,12 @@ export const DB_SCHEMA = `
     FOREIGN KEY (user_id) REFERENCES user_profile (id)
   );
   
+  CREATE TABLE IF NOT EXISTS night_summaries (
+    session_id TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    created_at INTEGER
+  );
+
   CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
