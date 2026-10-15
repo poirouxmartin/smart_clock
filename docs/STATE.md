@@ -1,0 +1,41 @@
+# Project state
+
+## Audit (2026-10-15, before the reliability work)
+
+What existed (commit `0d29680` snapshot):
+- UI screens: home, alarm setup, sleep mode, stats, settings, sounds, lights, onboarding,
+  local login/signup (plaintext passwords in SQLite, no backend, login gated the app).
+- Modules: sleep-analysis (audio + accel features), alarm-engine, notifications, sound,
+  Hue/Yeelight lights, bedtime calculator, i18n en/fr, SQLite profile/sessions.
+- 5 jest test files, but no `test` script. `tsc` had 1 error (DevToolsScreen).
+
+What did **not** work:
+- **The alarm could not fire reliably**: it relied on JS `setTimeout`/`setInterval`.
+  The native `AlarmModule` it called did not exist, `AlarmEngine.initialize()` was never
+  called outside the dev screen, and nothing consumed the trigger. App killed, Doze or
+  screen off meant no alarm.
+- **No motion was recorded at night** in production. The accelerometer and microphone
+  were only wired in the dev screen. `expo-background-task` was installed but unused.
+- Smart-wake logic counted light epochs rather than consecutive ones (bug), and was never fed data.
+- No morning summary beyond a "last night" card holding only the duration.
+- `android/` is prebuild output (gitignored); the release build used the debug key.
+
+## After this work
+
+- Native local module `modules/smart-alarm` (Kotlin):
+  - fallback alarm via `AlarmManager.setAlarmClock` (exact, Doze-proof, app-killed-proof,
+    re-armed after reboot/time change);
+  - foreground service recording the accelerometer all night (wake lock);
+  - native wake decision inside the window, ringing service plus a lock-screen activity.
+- JS: night analysis (calm/light/wake estimate), summaries stored in SQLite, new home,
+  sleep mode and night summary screens. The login gate is removed (the code is kept).
+- See `docs/SCIENCE.md` for the rationale and limits.
+
+## Known limits
+
+- Phone movement is only a rough sleep-stage proxy (see SCIENCE.md).
+- If the phone is on the bedside table, nothing moves: the alarm rings at the target time.
+- If the tracking service is killed (aggressive OEM battery savers), the smart part is
+  lost but the fallback alarm still rings. Disable battery optimisation for the app.
+- Legacy modules (lights, sounds, auth, onboarding quiz) are unchanged and not part of
+  the core flow.
