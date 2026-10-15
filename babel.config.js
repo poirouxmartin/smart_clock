@@ -24,7 +24,8 @@ module.exports = function(api) {
           },
         },
       ],
-      '@babel/plugin-transform-optional-chaining',
+      '@babel/plugin-proposal-optional-chaining',
+      '@babel/plugin-proposal-nullish-coalescing-operator',
       'react-native-reanimated/plugin',
     ],
   };

@@ -1,0 +1,82 @@
+# Build + publie l'APK Android release sur chaque tag v* (ex : v1.0.0).
+#
+# Signature : utilise le keystore des Secrets GitHub si configuré,
+# sinon repli automatique sur la clé debug (voir android/app/build.gradle).
+# Secrets requis pour une signature release stable (même clé à chaque build) :
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+#   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+#
+# NOTE : ne pas lancer `npx expo prebuild --clean` sans réappliquer le bloc
+# `signingConfigs.release` de android/app/build.gradle (dossier android/ commité).
+
+name: Release APK
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de release (ex : v1.0.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install SDK packages
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "cmake;3.22.1" "ndk;27.1.12297006"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore release keystore
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/smartclock-release.keystore
+          else
+            echo "No release keystore secret, falling back to debug signing."
+          fi
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew assembleRelease
+        env:
+          ANDROID_KEYSTORE_FILE: smartclock-release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Publish GitHub release
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then TAG="${{ github.ref_name }}"; else TAG="${{ inputs.tag }}"; fi
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          OUT="smart-clock-${TAG}.apk"
+          cp "$APK" "$OUT"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "$OUT" --clobber
+          else
+            gh release create "$TAG" "$OUT" --title "$TAG" --generate-notes
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -10,7 +10,7 @@ type SleepAnalysisNav = React.NavigationProp<RootStackParamList, 'SleepAnalysis'
 
 export function SleepAnalysisScreen() {
   const navigation = useNavigation<SleepAnalysisNav>();
-  const { t, tSleep, tHome, formatTime, formatDuration: fmtDuration } = useI18n();
+  const { t, tSleep, tHome, tCommon, formatTime, formatDuration: fmtDuration } = useI18n();
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SleepSession[]>([]);
   const [trends, setTrends] = useState<any[]>([]);
@@ -94,15 +94,15 @@ export function SleepAnalysisScreen() {
 
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{weeklyStats ? fmtDuration(weeklyStats.avgSleepTime) : '--'}</Text>
+            <Text style={styles.statValue}>{weeklyStats?.avgSleepTime != null ? fmtDuration(weeklyStats.avgSleepTime) : '--'}</Text>
             <Text style={styles.statLabel}>{tSleep('avgSleepTime')}</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{weeklyStats ? `${Math.round(weeklyStats.avgEfficiency)}%` : '--'}</Text>
+            <Text style={styles.statValue}>{weeklyStats?.avgEfficiency != null ? `${Math.round(weeklyStats.avgEfficiency)}%` : '--'}</Text>
             <Text style={styles.statLabel}>{tSleep('sleepEfficiency')}</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{weeklyStats ? weeklyStats.avgCycles.toFixed(1) : '--'}</Text>
+            <Text style={styles.statValue}>{weeklyStats?.avgCycles != null ? weeklyStats.avgCycles.toFixed(1) : '--'}</Text>
             <Text style={styles.statLabel}>{tSleep('avgCycles')}</Text>
           </View>
           <View style={styles.statCard}>
@@ -188,7 +188,7 @@ export function SleepAnalysisScreen() {
             {trends.slice(-7).map((trend, i) => (
               <Text key={i} style={styles.trendItem}>
                 <Text style={styles.trendIcon}>{formatDate(trend.date)}</Text>
-                <Text>{fmtDuration(trend.avgSleepTime)} • {Math.round(trend.avgEfficiency)}% • {trend.avgCycles.toFixed(1)} cycles</Text>
+                <Text>{trend.avgSleepTime != null ? fmtDuration(trend.avgSleepTime) : '--'} • {trend.avgEfficiency != null ? Math.round(trend.avgEfficiency) : '--'}% • {trend.avgCycles != null ? trend.avgCycles.toFixed(1) : '--'} cycles</Text>
               </Text>
             ))}
             {trends.length === 0 && (

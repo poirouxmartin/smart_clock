@@ -103,16 +103,9 @@ class AndroidForegroundService {
     
     try {
       const { PermissionsAndroid } = require('react-native');
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.USE_EXACT_ALARM,
-        {
-          title: 'Permission réveil précis',
-          message: 'Smart Clock a besoin de programmer des alarmes exactes pour vous réveiller au bon moment.',
-          buttonPositive: 'Autoriser',
-          buttonNegative: 'Refuser',
-        }
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
+      // SCHEDULE_EXACT_ALARM is a special permission, it can only be checked
+      // (the user enables it in Settings via the onboarding flow).
+      return await PermissionsAndroid.check('android.permission.SCHEDULE_EXACT_ALARM');
     } catch {
       return false;
     }

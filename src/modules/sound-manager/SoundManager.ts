@@ -1,4 +1,4 @@
-import { Audio } from 'expo-audio';
+import { setAudioModeAsync, preload } from 'expo-audio';
 import { SoundPlayer, createSoundPlayer } from './SoundPlayer';
 import {
   SoundAsset,
@@ -38,7 +38,7 @@ export class SoundManager {
     if (this.initialized) return;
 
     try {
-      await Audio.setAudioModeAsync({
+      await setAudioModeAsync({
         allowsRecording: false,
         playsInSilentMode: true,
         shouldPlayInBackground: true,
@@ -142,7 +142,7 @@ export class SoundManager {
     if (!asset) return;
 
     try {
-      await Audio.preload({ uri: asset.uri });
+      await preload({ uri: asset.uri });
     } catch (error) {
       console.warn(`[SoundManager] Failed to preload ${soundId}:`, error);
     }

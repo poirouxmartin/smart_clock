@@ -143,7 +143,6 @@ export function AlarmSetupScreen() {
       alarmEngine.addAlarm(alarm);
     }
 
-    Alert.alert(tCommon('save'), isEditing ? tAlarm('enabled') : tCommon('save') + ' !');
     navigation.goBack();
   }, [isEditing, route.params?.alarmId, wakeStart, wakeEnd, wakeWindowMinutes, selectedDays, soundId, volume, lightEnabled, vibrationEnabled, snoozeEnabled, snoozeDuration, navigation, validateWindow]);
 

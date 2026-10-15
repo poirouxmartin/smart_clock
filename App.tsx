@@ -8,16 +8,16 @@ import { AppNavigator } from '@/navigation/AppNavigator';
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor="#0a0e1a"
-          translucent={true} 
-        />
-        <SafeAreaProvider>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <StatusBar
+            barStyle="light-content"
+            backgroundColor="#0a0e1a"
+            translucent={true}
+          />
           <AppNavigator />
-        </SafeAreaProvider>
-      </NavigationContainer>
+        </NavigationContainer>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

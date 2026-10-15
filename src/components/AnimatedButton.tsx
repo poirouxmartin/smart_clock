@@ -37,7 +37,7 @@ export function AnimatedButton({
   onPress,
   ...props
 }: AnimatedButtonProps) {
-  const pressed = React.useRef(new Animated.SharedValue(false)).current;
+  const pressed = useSharedValue(false);
   const { bg, text, border } = VARIANT_STYLES[variant];
   const { px, py, fontSize, borderRadius, gap } = SIZE_STYLES[size];
   
@@ -80,11 +80,11 @@ export function AnimatedButton({
       accessibilityState={{ busy: loading }}
     >
       <Animated.View style={[styles.content, contentStyle]}>
-        {icon && iconPosition === 'left' && <View style={styles.icon}>{icon}</View>}
+        {icon && iconPosition === 'left' && <View style={styles.icon}><Animated.Text>{icon}</Animated.Text></View>}
         <Animated.Text style={[styles.text, { color: text, fontSize: SIZE_STYLES[size].fontSize, fontWeight: '600' }]}>
           {children}
         </Animated.Text>
-        {icon && iconPosition === 'right' && <View style={styles.icon}>{icon}</View>}
+        {icon && iconPosition === 'right' && <View style={styles.icon}><Animated.Text>{icon}</Animated.Text></View>}
       </Animated.View>
       {loading && (
         <Animated.View style={styles.spinner}>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Audio, useAudioRecorder, RecordingPresets, setAudioModeAsync, AudioModule, requestRecordingPermissionsAsync } from 'expo-audio';
-import { Accelerometer, AccelerometerListener, setUpdateIntervalForType, SensorType } from 'expo-sensors';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAudioRecorder, setAudioModeAsync, requestRecordingPermissionsAsync } from 'expo-audio';
+import { Accelerometer } from 'expo-sensors';
 import { SleepAnalyzer, AudioFeatures, AccelFeatures, SleepEpochFeatures } from '@/modules/sleep-analysis';
 import { AlarmEngine, createAlarmEngine, ActiveAlarm, AlarmConfig } from '@/modules/alarm-engine';
 import { SoundManager, getSoundManager, PlaybackStatus } from '@/modules/sound-manager';
@@ -106,7 +107,7 @@ export function DevToolsScreen() {
     }
   );
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const accelSubRef = useRef<AccelerometerListener | null>(null);
+  const accelSubRef = useRef<{ remove: () => void } | null>(null);
   const audioBufferRef = useRef<Float32Array[]>([]);
   const samplesCollectedRef = useRef(0);
 
@@ -116,7 +117,7 @@ export function DevToolsScreen() {
   }, []);
 
   useEffect(() => {
-    setUpdateIntervalForType(SensorType.accelerometer, 100);
+    Accelerometer.setUpdateInterval(100);
     accelSubRef.current = Accelerometer.addListener(data => {
       const timestamp = Date.now();
       const accelFeatures = analyzerRef.current.processAccelData(data.x, data.y, data.z, timestamp);

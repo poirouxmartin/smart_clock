@@ -1,4 +1,5 @@
-import { Audio, AudioPlayer } from 'expo-audio';
+import { createAudioPlayer } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
 import { SoundAsset, PlaybackConfig, PlaybackState, PlaybackStatus, SoundManagerConfig, DEFAULT_SOUND_CONFIG } from './types';
 
 type StatusCallback = (status: PlaybackStatus) => void;
@@ -46,7 +47,7 @@ export class SoundPlayer {
     this.emitStatus();
 
     try {
-      this.player = Audio.createAudioPlayer(
+      this.player = createAudioPlayer(
         { uri: asset.uri },
         { downloadFirst: false }
       );

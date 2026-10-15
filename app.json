@@ -2,7 +2,7 @@
   "expo": {
     "name": "Smart Clock",
     "slug": "smart_clock",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -12,25 +12,32 @@
       "resizeMode": "contain",
       "backgroundColor": "#0a0e1a"
     },
-    "assetBundlePatterns": ["**/*"],
-    "newArchEnabled": true,
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.poirouxmartin.smartclock",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Smart Clock a besoin d'accéder au microphone pour analyser votre sommeil via les sons nocturnes.",
-        "UIBackgroundModes": ["audio", "background-processing"]
+        "UIBackgroundModes": [
+          "audio",
+          "background-processing"
+        ]
       },
-      "associatedDomains": ["applinks:smartclock.app"]
+      "associatedDomains": [
+        "applinks:smartclock.app"
+      ]
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0a0e1a",
         "foregroundImage": "./assets/adaptive-icon.png",
-        "monochromeImage": "./assets/adaptive-icon.png"
+        "monochromeImage": "./assets/adaptive-icon-mono.png"
       },
       "package": "com.poirouxmartin.smartclock",
-      "versionCode": 1,
+      "versionCode": 4,
       "permissions": [
         "FOREGROUND_SERVICE",
         "WAKE_LOCK",
@@ -42,8 +49,13 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "data": { "scheme": "smartclock" },
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": {
+            "scheme": "smartclock"
+          },
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "blockedPermissions": [
@@ -77,7 +89,9 @@
             "deploymentTarget": "16.4"
           }
         }
-      ]
+      ],
+      "expo-localization",
+      "expo-sqlite"
     ],
     "web": {
       "favicon": "./assets/favicon.png",

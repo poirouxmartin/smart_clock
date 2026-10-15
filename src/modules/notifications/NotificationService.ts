@@ -113,7 +113,16 @@ export class NotificationService {
     }
 
     if (Platform.OS === 'android' && finalStatus === 'granted') {
-      console.log('[NotificationService] Notifications granted. Exact alarms will be handled at schedule time.');
+      try {
+        // SCHEDULE_EXACT_ALARM is a special permission: only check it here,
+        // the onboarding flow sends the user to Settings to enable it.
+        const exactGranted = await PermissionsAndroid.check('android.permission.SCHEDULE_EXACT_ALARM' as any);
+        if (!exactGranted) {
+          console.warn('[NotificationService] Exact alarm permission denied');
+        }
+      } catch (e) {
+        console.warn('[NotificationService] Exact alarm permission error:', e);
+      }
     }
 
     this.permissions = {
