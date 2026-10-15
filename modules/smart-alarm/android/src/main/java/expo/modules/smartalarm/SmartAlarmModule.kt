@@ -1,0 +1,156 @@
+package expo.modules.smartalarm
+
+import android.app.AlarmManager
+import android.app.NotificationManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import expo.modules.kotlin.modules.Module
+import expo.modules.kotlin.modules.ModuleDefinition
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+class SmartAlarmModule : Module() {
+
+    private val context: Context
+        get() = appContext.reactContext ?: throw IllegalStateException("React context lost")
+
+    override fun definition() = ModuleDefinition {
+        Name("SmartAlarm")
+
+        AsyncFunction("startNight") { targetAtMs: Double, windowMinutes: Int ->
+            startNight(targetAtMs.toLong(), windowMinutes)
+        }
+        AsyncFunction("cancelNight") { cancelNight() }
+        AsyncFunction("getStatus") { getStatus() }
+        AsyncFunction("getPermissions") { getPermissions() }
+        AsyncFunction("openExactAlarmSettings") { openExactAlarmSettings() }
+        AsyncFunction("openFullScreenIntentSettings") { openFullScreenIntentSettings() }
+        AsyncFunction("requestIgnoreBatteryOptimizations") { requestIgnoreBatteryOptimizations() }
+        AsyncFunction("listNights") { NightFile.list(context) }
+        AsyncFunction("readNight") { sessionId: String -> NightFile.read(context, sessionId) }
+        AsyncFunction("deleteNight") { sessionId: String -> NightFile.delete(context, sessionId) }
+        AsyncFunction("testRing") { delaySeconds: Int -> testRing(delaySeconds) }
+        AsyncFunction("markSummarySeen") { markSummarySeen() }
+    }
+
+    private fun startNight(targetAtMs: Long, windowMinutes: Int): Map<String, Any?> {
+        val ctx = context
+        val now = System.currentTimeMillis()
+        require(targetAtMs > now) { "targetAtMs must be in the future" }
+        require(windowMinutes in 0..120) { "windowMinutes must be in 0..120" }
+
+        // Stop any previous night first so its onDestroy finalizes with the old session's data.
+        ctx.stopService(Intent(ctx, SleepTrackingService::class.java))
+
+        val sessionId = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date(now))
+        AlarmStore.edit(ctx) {
+            putString("state", AlarmStore.TRACKING)
+            putString("sessionId", sessionId)
+            putLong("startedAtMs", now)
+            putLong("targetAtMs", targetAtMs)
+            putInt("windowMinutes", windowMinutes)
+            putLong("firedAtMs", 0L)
+            remove("firedReason")
+            putBoolean("summarySeen", false)
+        }
+        NightFile.create(ctx, sessionId, now, targetAtMs, windowMinutes)
+        val exact = AlarmScheduler.scheduleFallback(ctx, targetAtMs)
+        ContextCompat.startForegroundService(ctx, Intent(ctx, SleepTrackingService::class.java))
+        return mapOf("exactAlarm" to exact)
+    }
+
+    private fun cancelNight() {
+        val ctx = context
+        AlarmScheduler.cancel(ctx)
+        ctx.stopService(Intent(ctx, SleepTrackingService::class.java))
+        if (AlarmStore.state(ctx) == AlarmStore.RINGING) {
+            ctx.startService(Intent(ctx, RingService::class.java).setAction(AlarmScheduler.ACTION_STOP))
+        }
+        AlarmStore.edit(ctx) { putString("state", AlarmStore.IDLE) }
+    }
+
+    private fun getStatus(): Map<String, Any?> {
+        val ctx = context
+        return mapOf(
+            "state" to AlarmStore.state(ctx),
+            "sessionId" to AlarmStore.sessionId(ctx),
+            "startedAtMs" to AlarmStore.startedAtMs(ctx),
+            "targetAtMs" to AlarmStore.targetAtMs(ctx),
+            "windowMinutes" to AlarmStore.windowMinutes(ctx),
+            "firedAtMs" to AlarmStore.firedAtMs(ctx),
+            "firedReason" to AlarmStore.firedReason(ctx),
+            "epochCount" to SleepTrackingService.epochCount,
+            "lastActivity" to SleepTrackingService.lastActivity,
+            "summarySeen" to AlarmStore.summarySeen(ctx),
+        )
+    }
+
+    private fun getPermissions(): Map<String, Any?> {
+        val ctx = context
+        val am = ctx.getSystemService(AlarmManager::class.java)
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        val pm = ctx.getSystemService(PowerManager::class.java)
+        return mapOf(
+            "exactAlarm" to (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()),
+            "fullScreenIntent" to (Build.VERSION.SDK_INT < 34 || nm.canUseFullScreenIntent()),
+            "notifications" to NotificationManagerCompat.from(ctx).areNotificationsEnabled(),
+            "ignoringBatteryOptimizations" to pm.isIgnoringBatteryOptimizations(ctx.packageName),
+        )
+    }
+
+    private fun openExactAlarmSettings() {
+        val ctx = context
+        val intent = if (Build.VERSION.SDK_INT >= 31) {
+            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}"))
+        } else {
+            appDetailsIntent(ctx)
+        }
+        startSettings(ctx, intent)
+    }
+
+    private fun openFullScreenIntentSettings() {
+        val ctx = context
+        val intent = if (Build.VERSION.SDK_INT >= 34) {
+            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${ctx.packageName}"))
+        } else {
+            appDetailsIntent(ctx)
+        }
+        startSettings(ctx, intent)
+    }
+
+    private fun requestIgnoreBatteryOptimizations() {
+        val ctx = context
+        val intent = Intent(
+            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            Uri.parse("package:${ctx.packageName}"),
+        )
+        startSettings(ctx, intent)
+    }
+
+    private fun appDetailsIntent(ctx: Context): Intent =
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
+
+    private fun startSettings(ctx: Context, intent: Intent) {
+        try {
+            ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            ctx.startActivity(appDetailsIntent(ctx).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
+
+    private fun testRing(delaySeconds: Int) {
+        val ctx = context
+        AlarmScheduler.scheduleTest(ctx, System.currentTimeMillis() + delaySeconds * 1000L)
+    }
+
+    private fun markSummarySeen() {
+        AlarmStore.edit(context) { putBoolean("summarySeen", true) }
+    }
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ring_title">Wake up</string>
+    <string name="ring_smart">Light sleep detected in your window</string>
+    <string name="ring_fallback">Target time reached</string>
+    <string name="ring_test">Test alarm</string>
+    <string name="stop">Stop</string>
+    <string name="tracking_title">Night in progress</string>
+    <string name="tracking_text">Wake-up between %1$s and %2$s</string>
+    <string name="stop_night">Stop tracking</string>
+    <string name="channel_alarm">Alarm</string>
+    <string name="channel_tracking">Sleep tracking</string>
+</resources>
