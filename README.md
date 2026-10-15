@@ -1,88 +1,46 @@
-# Smart Clock - Réveil Connecté Intelligent
+# Smart Clock - réveil intelligent (Android)
 
-Application de réveil intelligent qui analyse le sommeil via microphone et accéléromètre pour réveiller au moment optimal dans une fenêtre de 1h30.
+Réveil qui sonne au moment le plus « léger » d'une fenêtre avant l'heure cible, d'après
+les mouvements enregistrés par le téléphone posé sur le matelas. Au plus tard, il sonne
+toujours à l'heure cible.
 
-## Fonctionnalités
+## Utilisation
 
-- **Analyse du sommeil** : Microphone + accéléromètre pour détecter les phases de sommeil léger
-- **Réveil intelligent** : Fenêtre de 1h30, réveil au moment optimal (phase légère)
-- **Réveil doux** : Sons nature + lumière progressive (ampoules connectées)
-- **Indicateur coucher** : Calcule l'heure idéale pour dormir selon les cycles
-- **Historique & tendances** : Suivi qualité sommeil sur le long terme
-- **Local-first** : Données stockées localement, sync optionnelle
+1. Accueil : régler l'heure cible et la fenêtre (10/20/30/45 min, 30 par défaut).
+2. Corriger les autorisations signalées (alarmes exactes, notifications plein écran,
+   notifications ; optimisation batterie recommandée).
+3. « Commencer la nuit », puis poser le téléphone sur le matelas, branché. L'écran peut
+   être éteint.
+4. Au réveil, appuyer sur « Arrêter » : le résumé de la nuit s'affiche (durée, phases
+   estimées calme/léger/éveil, type de réveil).
 
-## Stack
+« Tester l'alarme » déclenche une sonnerie dans 10 s, ce qui permet de vérifier le son et
+l'affichage sur l'écran verrouillé.
 
-- **React Native** / **Expo** (SDK 57)
-- **TypeScript** strict
-- **Expo Router** (navigation)
-- **expo-av** (audio recording)
-- **expo-sensors** (accelerometer)
-- **expo-notifications** (alarms)
-- **expo-bluetooth** (smart lights)
-- **React Native Reanimated** (animations)
+## Fonctionnement
 
-## Structure
-
-```
-src/
-├── components/          # Composants UI réutilisables
-├── screens/             # Écrans principaux
-├── navigation/          # Configuration navigation
-├── hooks/               # Custom hooks
-├── utils/               # Utilitaires
-├── constants/           # Constantes app
-├── types/               # Types TypeScript
-├── dev/                 # Outils développeur (POC)
-└── modules/             # Modules métier
-    ├── sleep-analysis/     # Analyse microphone/accel
-    ├── alarm-engine/       # Logique réveil optimal
-    ├── sound-manager/      # Sons nature/custom
-    ├── light-controller/   # Ampoules connectées
-    ├── bedtime-calculator/ # Indicateur coucher
-    ├── user-profile/       # Profil + apprentissage
-    ├── notifications/      # Gestion notifications
-    └── i18n/               # Internationalisation
-```
-
-## Démarrage
-
-```bash
-# Installation
-npm install
-
-# Développement
-npm run start      # Expo Go
-npm run android    # Build Android
-npm run ios        # Build iOS (macOS requis)
-npm run web        # Version web
-```
+- `modules/smart-alarm` : module natif Kotlin (module Expo local).
+  - Alarme de secours `AlarmManager.setAlarmClock` à l'heure cible : exacte, fonctionne
+    en Doze, avec l'app tuée, et après un redémarrage (re-armée au boot).
+  - `SleepTrackingService` : service de premier plan, accéléromètre à 20 Hz, époques
+    d'une minute, fichier de nuit JSON local.
+  - `WakeDecider` : dans la fenêtre, sonne à la première époque dont le mouvement est
+    dans le top 10 % de la nuit (et au-dessus d'un seuil minimal).
+  - `RingService` + `AlarmActivity` : sonnerie en usage « alarme », montée progressive du
+    volume, vibration, écran plein par-dessus le verrouillage.
+- `src/modules/night` : analyse de la nuit (JS) et résumés stockés en SQLite.
+- Science et limites : [docs/SCIENCE.md](docs/SCIENCE.md). État du projet :
+  [docs/STATE.md](docs/STATE.md).
 
 ## Développement
 
-### POC Microphone (DevTools)
-L'écran "Outils développeur" accessible depuis l'accueil permet :
-- Enregistrement audio continu (chunks 30s)
-- Affichage RMS temps réel
-- Accéléromètre 3 axes
-- Export CSV pour analyse
+```bash
+npm install
+npm test                      # jest
+npx tsc --noEmit              # le flux principal est typé ; du code legacy reste en erreur
+npx expo prebuild --platform android --clean
+cd android && ./gradlew :smart-alarm:testDebugUnitTest assembleRelease
+```
 
-### Prochaines étapes
-1. Algorithme détection phase légère (fusion audio + accel)
-2. Moteur de réveil avec fenêtre glissante
-3. Persistance données (AsyncStorage → SQLite)
-4. Notifications exactes Android (foreground service)
-5. Intégration ampoules (Matter/BLE)
-
-## Permissions Android
-
-- `RECORD_AUDIO` : Analyse sommeil
-- `FOREGROUND_SERVICE` : Enregistrement nuit
-- `USE_EXACT_ALARM` / `SCHEDULE_EXACT_ALARM` : Réveil précis
-- `BLUETOOTH_CONNECT/SCAN` : Ampoules connectées
-- `WAKE_LOCK` : Écran allumé au réveil
-- `RECEIVE_BOOT_COMPLETED` : Restauration alarmes au reboot
-
-## License
-
-MIT
+Dans `android/gradle.properties`, définir `reactNativeArchitectures=arm64-v8a,x86_64`
+pour un APK plus léger. La release est signée avec la clé de debug (usage personnel).
