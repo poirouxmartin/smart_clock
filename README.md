@@ -38,9 +38,10 @@ l'affichage sur l'écran verrouillé.
 npm install
 npm test                      # jest
 npx tsc --noEmit              # le flux principal est typé ; du code legacy reste en erreur
-npx expo prebuild --platform android --clean
 cd android && ./gradlew :smart-alarm:testDebugUnitTest assembleRelease
 ```
 
-Dans `android/gradle.properties`, définir `reactNativeArchitectures=arm64-v8a,x86_64`
-pour un APK plus léger. La release est signée avec la clé de debug (usage personnel).
+`android/` est versionné (config de signature release) : ne pas lancer
+`expo prebuild --clean`, qui l'écraserait. Release : pousser un tag `v*` et la CI
+(`.github/workflows/release-apk.yml`) publie l'APK signé avec la clé release. En local,
+sans `keystore.properties`, l'APK est signé avec la clé de debug.

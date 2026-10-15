@@ -18,7 +18,8 @@ What did **not** work:
   were only wired in the dev screen. `expo-background-task` was installed but unused.
 - Smart-wake logic counted light epochs rather than consecutive ones (bug), and was never fed data.
 - No morning summary beyond a "last night" card holding only the duration.
-- `android/` is prebuild output (gitignored); the release build used the debug key.
+- This clone was missing 8 commits from origin (tracked `android/`, release CI, SDK 57
+  fixes). They were merged into the work below.
 
 ## After this work
 
