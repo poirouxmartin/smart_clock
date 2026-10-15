@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -332,7 +332,7 @@ export function EnrichedOnboardingScreen() {
 
   if (isLastQuestion) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <LinearGradient
           colors={Colors.gradient.night}
           style={styles.gradient}
@@ -447,7 +447,7 @@ export function EnrichedOnboardingScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <LinearGradient colors={Colors.gradient.night} style={styles.gradient}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}

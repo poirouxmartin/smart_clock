@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, type NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -109,7 +110,7 @@ export function NightSummaryScreen() {
   if (loading) {
     return (
       <LinearGradient colors={['#0a0e1a', '#0f172a', '#1e1b4b']} style={styles.container}>
-        <SafeAreaView style={styles.safe}>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           {header}
           <View style={styles.center}>
             <ActivityIndicator size="large" color={Colors.primary} />
@@ -122,7 +123,7 @@ export function NightSummaryScreen() {
   if (!summary) {
     return (
       <LinearGradient colors={['#0a0e1a', '#0f172a', '#1e1b4b']} style={styles.container}>
-        <SafeAreaView style={styles.safe}>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           {header}
           <View style={styles.center}>
             <Text style={styles.muted}>{tn('notFound')}</Text>
@@ -140,7 +141,7 @@ export function NightSummaryScreen() {
 
   return (
     <LinearGradient colors={['#0a0e1a', '#0f172a', '#1e1b4b']} style={styles.container}>
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         {header}
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <Text style={styles.date}>{dateLabel}</Text>
@@ -178,7 +179,7 @@ export function NightSummaryScreen() {
             </View>
           )}
 
-          <View style={styles.card}>
+          <View style={[styles.card, styles.cardColumn]}>
             <Text style={styles.cardTitle}>{tn('hypnogram')}</Text>
             <View style={styles.hypnoRow}>
               {bars.map((st, i) => (
@@ -234,6 +235,7 @@ const styles = StyleSheet.create({
 
   card: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.bgCard, borderRadius: Radius.xl, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.md },
   reasonText: { ...Typography.bodySmall, color: Colors.textSecondary, flex: 1 },
+  cardColumn: { flexDirection: 'column', alignItems: 'stretch' },
   warningCard: { borderColor: Colors.warning + '60' },
   warningText: { ...Typography.bodySmall, color: Colors.warning, flex: 1 },
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useI18n } from '@/modules/i18n';
 import { getUserProfileManager } from '@/modules/user-profile';
@@ -10,7 +11,7 @@ import * as Linking from 'expo-linking';
 
 export function SettingsScreen() {
   const navigation = useNavigation();
-  const { t, tCommon, tSettings, tAlarm, tNotifications, tSounds, tLights, tProfile, currentLocale, changeLocale } = useI18n();
+  const { t, tCommon, tSettings, tAlarm, tNotifications, tSounds, tProfile, currentLocale, changeLocale } = useI18n();
   
   const [profile, setProfile] = useState<any>(null);
   const [notifPrefs, setNotifPrefs] = useState<any>({});
@@ -114,7 +115,7 @@ export function SettingsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.loading}>
           <Text style={styles.loadingText}>{tCommon('loading')}</Text>
         </View>
@@ -130,7 +131,7 @@ export function SettingsScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>{tSettings('title')}</Text>
@@ -160,28 +161,6 @@ export function SettingsScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{tSettings('alarm')}</Text>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tAlarm('smartWake')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Switch
-                value={true}
-                onValueChange={() => {}}
-                trackColor={{ false: '#1e293b', true: '#0ea5e9' }}
-                thumbColor="#fff"
-              />
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row} onPress={() => {}}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tAlarm('wakeWindowDuration')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.itemValue}>1h30</Text>
-              <Text style={styles.actionText}>▶</Text>
-            </View>
-          </TouchableOpacity>
           <TouchableOpacity style={styles.row}>
             <View style={styles.rowLeft}>
               <Text style={styles.itemLabel}>{tAlarm('fallbackAlarm')}</Text>
@@ -222,7 +201,7 @@ export function SettingsScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Lights')}>
             <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tLights('lightIntegration')}</Text>
+              <Text style={styles.itemLabel}>{tSettings('lightIntegration')}</Text>
             </View>
             <View style={styles.rowRight}>
               <Text style={styles.actionText}>▶</Text>

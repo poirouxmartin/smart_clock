@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TimePickerAndroid, Platform, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TimePickerAndroid, Platform, Alert, Switch } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useI18n } from '@/modules/i18n';
@@ -148,7 +149,7 @@ export function AlarmSetupScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.loading}>
           <Text style={styles.loadingText}>{tCommon('loading')}</Text>
         </View>
@@ -159,7 +160,7 @@ export function AlarmSetupScreen() {
   const DAYS = [tCommon('sunday'), tCommon('monday'), tCommon('tuesday'), tCommon('wednesday'), tCommon('thursday'), tCommon('friday'), tCommon('saturday')];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, AppState } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, type NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -93,6 +94,13 @@ export function HomeScreen() {
     }
   }, []);
 
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active') refreshPermissions();
+    });
+    return () => sub.remove();
+  }, [refreshPermissions]);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -153,6 +161,7 @@ export function HomeScreen() {
   const onTestRing = async () => {
     try {
       await SmartAlarm.testRing(10);
+      Alert.alert(tn('testRing'), tn('testScheduled'));
     } catch (e) {
       console.error('testRing error:', e);
     }
@@ -167,7 +176,7 @@ export function HomeScreen() {
 
   return (
     <LinearGradient colors={['#0a0e1a', '#0f172a', '#1e1b4b']} style={styles.container}>
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Text style={styles.clock}>{clock}</Text>
@@ -260,16 +269,16 @@ export function HomeScreen() {
           <TouchableOpacity style={styles.testLink} onPress={onTestRing}>
             <Text style={styles.testLinkText}>{tn('testRing')}</Text>
           </TouchableOpacity>
-        </ScrollView>
 
-        <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Stats')}>
-            <Ionicons name="bar-chart" size={22} color={Colors.textMuted} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Settings')}>
-            <Ionicons name="settings-outline" size={22} color={Colors.textMuted} />
-          </TouchableOpacity>
-        </View>
+          <View style={styles.bottomBar}>
+            <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Stats')}>
+              <Ionicons name="bar-chart" size={22} color={Colors.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Settings')}>
+              <Ionicons name="settings-outline" size={22} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -334,6 +343,6 @@ const styles = StyleSheet.create({
   testLink: { alignItems: 'center', paddingVertical: Spacing.md },
   testLinkText: { ...Typography.bodySmall, color: Colors.textMuted, textDecorationLine: 'underline' },
 
-  bottomBar: { position: 'absolute', bottom: 24, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32 },
+  bottomBar: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32, marginTop: Spacing.lg },
   bottomButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
 });

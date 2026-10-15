@@ -2,6 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'react-native'; // expo-status-bar has no barStyle/backgroundColor/translucent props
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from '@/navigation/AppNavigator';
 
 export default function App() {
@@ -13,7 +14,9 @@ export default function App() {
           backgroundColor="#0a0e1a"
           translucent={true} 
         />
-        <AppNavigator />
+        <SafeAreaProvider>
+          <AppNavigator />
+        </SafeAreaProvider>
       </NavigationContainer>
     </GestureHandlerRootView>
   );
