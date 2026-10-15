@@ -32,9 +32,7 @@
       "package": "com.poirouxmartin.smartclock",
       "versionCode": 1,
       "permissions": [
-        "RECORD_AUDIO",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_MICROPHONE",
         "WAKE_LOCK",
         "USE_EXACT_ALARM",
         "SCHEDULE_EXACT_ALARM",
@@ -48,15 +46,18 @@
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
-      "blockedPermissions": ["android.permission.ACCESS_FINE_LOCATION"]
+      "blockedPermissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE"
+      ]
     },
     "plugins": [
       [
         "expo-audio",
         {
-          "microphonePermission": "Smart Clock a besoin d'accéder au microphone pour analyser votre sommeil via les sons nocturnes.",
           "enableBackgroundPlayback": true,
-          "enableBackgroundRecording": true
+          "enableBackgroundRecording": false
         }
       ],
       "expo-notifications",
@@ -83,7 +84,6 @@
       "bundler": "metro"
     },
     "experiments": {
-      "typedRoutes": true,
       "tsconfigPaths": true
     },
     "extra": {
