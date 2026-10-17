@@ -1,4 +1,4 @@
-# Smart Clock - Réveil Connecté Intelligent
+# Aube - Réveil Connecté Intelligent
 
 ## Vision
 Réveil qui te réveille pile au bon moment pour te sentir bien (analyse pouls, sommeil profond, cycles, etc.)

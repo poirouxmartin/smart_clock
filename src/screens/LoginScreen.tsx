@@ -37,7 +37,7 @@ export function LoginScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.content}>
           <View style={styles.header}>
             <Ionicons name="moon" size={48} color={Colors.primary} />
-            <Text style={styles.title}>Smart Clock</Text>
+            <Text style={styles.title}>Aube</Text>
             <Text style={styles.subtitle}>Connectez-vous à votre compte</Text>
           </View>
 

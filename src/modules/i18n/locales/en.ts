@@ -1,6 +1,6 @@
 export const en = {
   common: {
-    appName: 'Smart Clock',
+    appName: 'Aube',
     ok: 'OK',
     cancel: 'Cancel',
     save: 'Save',
@@ -52,8 +52,8 @@ export const en = {
     allTime: 'All Time',
   },
   home: {
-    title: 'Smart Clock',
-    subtitle: 'Smart Alarm Clock',
+    title: 'Aube',
+    subtitle: 'Smart alarm clock',
     nextAlarm: 'Next Alarm',
     smartWakeWindow: 'Smart 1h30 Window',
     bedtimeIndicator: 'Bedtime Indicator',
@@ -321,7 +321,7 @@ export const en = {
     after1am: 'After 1am',
   },
   onboarding: {
-    welcome: 'Welcome to Smart Clock',
+    welcome: 'Welcome to Aube',
     subtitle: 'The alarm that wakes you at the right moment',
     step1: 'Sleep Analysis',
     step1Desc: 'We use microphone and accelerometer to detect your light sleep phases',
@@ -345,7 +345,7 @@ export const en = {
     profileComplete: 'Profile Complete',
     readyToUse: 'Ready to Use',
     permissions: 'Required Permissions',
-    permissionsDesc: 'To work properly, Smart Clock needs these permissions:',
+    permissionsDesc: 'To work properly, Aube needs these permissions:',
     chronotypeQuiz: 'Chronotype Quiz',
     chronotypeQuizDesc: 'Answer 4 questions to determine your sleep type',
     question: 'Question {{current}} of {{total}}',
@@ -382,7 +382,7 @@ export const en = {
     wakeUpAt: 'Wake up at',
     smartWakeWindow: 'Smart 1h30 window • Optimal wake detected automatically',
     firstAlarmLabel: 'My first smart alarm',
-    startUsing: 'Start using Smart Clock',
+    startUsing: 'Start using Aube',
     skipPermissions: 'Skip for now — permissions can be granted later in Settings',
   },
   errors: {

@@ -14,10 +14,10 @@ export interface ForegroundServiceConfig {
 export const DEFAULT_FOREGROUND_CONFIG: ForegroundServiceConfig = {
   notificationId: 888,
   channelId: 'smart_clock_alarm_service',
-  channelName: 'Smart Clock Alarm',
+  channelName: 'Aube Alarm',
   channelDescription: 'Service de surveillance du réveil intelligent',
   icon: 'ic_notification',
-  title: 'Smart Clock actif',
+  title: 'Aube actif',
   text: 'Surveillance du sommeil pour réveil optimal',
 };
 

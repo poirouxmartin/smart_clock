@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Smart Clock",
+    "name": "Aube",
     "slug": "smart_clock",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -20,7 +20,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.poirouxmartin.smartclock",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Smart Clock a besoin d'accéder au microphone pour analyser votre sommeil via les sons nocturnes.",
+        "NSMicrophoneUsageDescription": "Aube a besoin d'accéder au microphone pour analyser votre sommeil via les sons nocturnes.",
         "UIBackgroundModes": [
           "audio",
           "background-processing"
@@ -33,11 +33,12 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0a0e1a",
+        "backgroundImage": "./assets/adaptive-icon-background.png",
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/adaptive-icon-mono.png"
       },
       "package": "com.poirouxmartin.smartclock",
-      "versionCode": 4,
+      "versionCode": 5,
       "permissions": [
         "FOREGROUND_SERVICE",
         "WAKE_LOCK",

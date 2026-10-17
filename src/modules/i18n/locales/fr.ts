@@ -1,6 +1,6 @@
 export const fr = {
   common: {
-    appName: 'Smart Clock',
+    appName: 'Aube',
     ok: 'OK',
     cancel: 'Annuler',
     save: 'Enregistrer',
@@ -52,7 +52,7 @@ export const fr = {
     allTime: 'Tout l\'historique',
   },
   home: {
-    title: 'Smart Clock',
+    title: 'Aube',
     subtitle: 'Réveil intelligent',
     nextAlarm: 'Prochain réveil',
     smartWakeWindow: 'Fenêtre intelligente 1h30',
@@ -322,7 +322,7 @@ export const fr = {
     after1am: 'Après 1h',
   },
   onboarding: {
-    welcome: 'Bienvenue sur Smart Clock',
+    welcome: 'Bienvenue sur Aube',
     subtitle: 'Le réveil qui vous réveille au bon moment',
     step1: 'Analyse du sommeil',
     step1Desc: 'Nous utilisons le microphone et l\'accéléromètre pour détecter vos phases de sommeil léger',
@@ -346,7 +346,7 @@ export const fr = {
     profileComplete: 'Profil configuré',
     readyToUse: 'Prêt à l\'emploi',
     permissions: 'Permissions nécessaires',
-    permissionsDesc: 'Pour fonctionner correctement, Smart Clock a besoin de ces autorisations :',
+    permissionsDesc: 'Pour fonctionner correctement, Aube a besoin de ces autorisations :',
     chronotypeQuiz: 'Quiz chronotype',
     chronotypeQuizDesc: 'Répondez à 4 questions pour déterminer votre type de sommeil',
     question: 'Question {{current}} sur {{total}}',
@@ -383,7 +383,7 @@ export const fr = {
     wakeUpAt: 'Réveil à',
     smartWakeWindow: 'Fenêtre intelligente 1h30 • Réveil optimal détecté automatiquement',
     firstAlarmLabel: 'Mon premier réveil intelligent',
-    startUsing: 'Commencer à utiliser Smart Clock',
+    startUsing: 'Commencer à utiliser Aube',
     skipPermissions: 'Passer pour l\'instant — les permissions pourront être accordées plus tard dans les Paramètres',
   },
   errors: {

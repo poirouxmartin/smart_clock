@@ -1,8 +1,10 @@
-# Smart Clock - réveil intelligent (Android)
+# Aube - réveil intelligent (Android)
 
 Réveil qui sonne au moment le plus « léger » d'une fenêtre avant l'heure cible, d'après
 les mouvements enregistrés par le téléphone posé sur le matelas. Au plus tard, il sonne
 toujours à l'heure cible.
+
+Anciennement « Smart Clock ». L'identifiant Android `com.poirouxmartin.smartclock` est conservé : les nouvelles versions s'installent par-dessus les anciennes sans perdre les nuits enregistrées.
 
 ## Utilisation
 
@@ -40,6 +42,8 @@ npm test                      # jest
 npx tsc --noEmit              # le flux principal est typé ; du code legacy reste en erreur
 cd android && ./gradlew :smart-alarm:testDebugUnitTest assembleRelease
 ```
+
+Icônes : `python scripts/generate_icons.py` régénère `assets/` et les mipmaps Android à partir d'un dessin vectoriel (soleil levant sur l'horizon).
 
 `android/` est versionné (config de signature release) : ne pas lancer
 `expo prebuild --clean`, qui l'écraserait. Release : pousser un tag `v*` et la CI

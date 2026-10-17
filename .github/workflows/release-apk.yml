@@ -71,12 +71,12 @@ jobs:
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then TAG="${{ github.ref_name }}"; else TAG="${{ inputs.tag }}"; fi
           APK="android/app/build/outputs/apk/release/app-release.apk"
-          OUT="smart-clock-${TAG}.apk"
+          OUT="aube-${TAG}.apk"
           cp "$APK" "$OUT"
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" "$OUT" --clobber
           else
-            gh release create "$TAG" "$OUT" --title "$TAG" --generate-notes
+            gh release create "$TAG" "$OUT" --title "Aube ${TAG}" --generate-notes
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
