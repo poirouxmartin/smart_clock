@@ -35,9 +35,9 @@ class RingService : Service() {
         private const val ACTIVITY_REQUEST_CODE = 2002
         private const val WAKE_LOCK_MS = 30 * 60_000L
         private const val AUTO_STOP_MS = 20 * 60_000L
-        private const val RAMP_MS = 60_000L
-        private const val RAMP_TICK_MS = 3_000L
+        private const val RAMP_TICK_MS = 1_000L
         private const val START_VOLUME = 0.15f
+        private const val NATURE_START_VOLUME = 0.02f
         private val VIBRATE_PATTERN = longArrayOf(0, 800, 800)
     }
 
@@ -45,6 +45,9 @@ class RingService : Service() {
     private var ringing = false
     private var reason = "fallback"
     private var ringStartedMs = 0L
+    private var rampMs = 60_000L
+    private var startVolume = START_VOLUME
+    private var natureSound = false
     private var player: MediaPlayer? = null
     private var ringtone: Ringtone? = null
     private var vibrator: Vibrator? = null
@@ -53,16 +56,18 @@ class RingService : Service() {
     private val rampStep = object : Runnable {
         override fun run() {
             val p = player ?: return
-            val frac = ((System.currentTimeMillis() - ringStartedMs).toFloat() / RAMP_MS).coerceIn(0f, 1f)
-            val volume = START_VOLUME + (1f - START_VOLUME) * frac
+            val elapsed = System.currentTimeMillis() - ringStartedMs
+            val volume = VolumeRamp.volume(elapsed, rampMs, startVolume)
             try {
                 p.setVolume(volume, volume)
             } catch (e: IllegalStateException) {
                 Log.w(TAG, "Cannot set ring volume", e)
             }
-            if (frac < 1f) handler.postDelayed(this, RAMP_TICK_MS)
+            if (elapsed < rampMs) handler.postDelayed(this, RAMP_TICK_MS)
         }
     }
+
+    private val vibrateLater = Runnable { startVibration() }
 
     private val autoStop = Runnable { stopAndFinish() }
 
@@ -82,6 +87,7 @@ class RingService : Service() {
         reason = fireReason
         ringing = true
         ringStartedMs = System.currentTimeMillis()
+        rampMs = WakeOptions.rampSeconds(this) * 1000L
 
         // A test ring must not touch a real night (state, fallback alarm, tracking).
         if (reason != "test") {
@@ -97,7 +103,8 @@ class RingService : Service() {
 
         acquireWakeLock()
         startSound()
-        startVibration()
+        // Nature sounds fade in silently; vibration starts once the ramp is complete.
+        if (natureSound) handler.postDelayed(vibrateLater, rampMs) else startVibration()
         handler.post(rampStep)
         handler.postDelayed(autoStop, AUTO_STOP_MS)
         try {
@@ -170,11 +177,20 @@ class RingService : Service() {
     }
 
     private fun startSound() {
-        val uri: Uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            ?: return
+        val rawName = NatureSound.rawName(WakeOptions.sound(this))
+        val rawId = if (rawName != null) resources.getIdentifier(rawName, "raw", packageName) else 0
+        natureSound = rawId != 0
+        startVolume = if (natureSound) NATURE_START_VOLUME else START_VOLUME
+
+        val uri: Uri = if (natureSound) {
+            Uri.parse("android.resource://$packageName/$rawId")
+        } else {
+            RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                ?: return
+        }
 
         val attrs = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
@@ -187,7 +203,7 @@ class RingService : Service() {
                 mp.setAudioAttributes(attrs)
                 mp.setDataSource(this, uri)
                 mp.isLooping = true
-                mp.setVolume(START_VOLUME, START_VOLUME)
+                mp.setVolume(startVolume, startVolume)
                 mp.prepare()
                 mp.start()
                 player = mp
@@ -234,6 +250,7 @@ class RingService : Service() {
     }
 
     private fun stopRinging() {
+        handler.removeCallbacks(vibrateLater)
         handler.removeCallbacksAndMessages(null)
         player?.let {
             try {
@@ -255,6 +272,13 @@ class RingService : Service() {
         stopRinging()
         if (reason != "test") {
             AlarmStore.edit(this) { putString("state", AlarmStore.DONE) }
+            DawnActivity.finishIfRunning()
+            DawnScheduler.cancel(this)
+            try {
+                AutoManager.rearm(applicationContext)
+            } catch (e: Exception) {
+                Log.w(TAG, "Cannot re-arm automatic alarm", e)
+            }
         }
         AlarmActivity.finishCurrent()
         stopForeground(STOP_FOREGROUND_REMOVE)
