@@ -40,6 +40,7 @@ class SleepTrackingService : Service(), SensorEventListener {
         private const val SAVE_EVERY_EPOCHS = 5
         private const val MIN_WAKE_LOCK_MS = 60 * 60_000L
         private const val EXTRA_WAKE_MS = 60 * 60_000L
+        private const val MANUAL_SLEEP_LATENCY_MS = 15 * 60_000L
 
         @Volatile
         var epochCount: Int = 0
@@ -186,7 +187,11 @@ class SleepTrackingService : Service(), SensorEventListener {
         if (now < windowStartMs) return
 
         val history = epochs.filter { it.tMs < windowStartMs }.map { it.activity }
-        if (WakeDecider.shouldWake(now, windowStartMs, targetAtMs, history, activity)) {
+        val recent = epochs.filter { it.tMs >= windowStartMs }.map { it.activity }
+        val onset = NightSession.onsetMs(this).takeIf { it > 0 } ?: (AlarmStore.startedAtMs(this) + MANUAL_SLEEP_LATENCY_MS)
+        val reason = WakeDecider.decide(now, windowStartMs, targetAtMs, history, recent, onset, AutoStore.freshApiConfidence(this, now))
+        if (reason != null) {
+            Log.i(TAG, "Smart wake: $reason")
             stopListening()
             try {
                 ContextCompat.startForegroundService(
