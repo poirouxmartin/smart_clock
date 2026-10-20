@@ -20,6 +20,35 @@ export type PermissionStatus = {
   ignoringBatteryOptimizations: boolean;
 };
 
+export type AutoConfig = {
+  enabled: boolean;
+  hour: number;
+  minute: number;
+  daysMask: number;
+  windowMinutes: number;
+};
+
+export type AutoStatus = {
+  enabled: boolean;
+  hour: number;
+  minute: number;
+  daysMask: number;
+  windowMinutes: number;
+  currentTargetMs: number;
+  usualBedMinute: number;
+  apiConfidence: number;
+};
+
+export type WakeSound = 'system' | 'birds' | 'waves' | 'forest' | 'rain' | 'stream';
+
+export type WakeOptions = {
+  sound: WakeSound;
+  rampSeconds: number;
+  dawnEnabled: boolean;
+  dawnMinutes: number;
+  torch: boolean;
+};
+
 type SmartAlarmNative = {
   startNight(targetAtMs: number, windowMinutes: number): Promise<{ exactAlarm: boolean }>;
   cancelNight(): Promise<void>;
@@ -33,6 +62,31 @@ type SmartAlarmNative = {
   deleteNight(sessionId: string): Promise<void>;
   testRing(delaySeconds: number): Promise<void>;
   markSummarySeen(): Promise<void>;
+  configureAuto(cfg: AutoConfig): Promise<AutoStatus>;
+  getAutoStatus(): Promise<AutoStatus>;
+  getWakeOptions(): Promise<WakeOptions>;
+  setWakeOptions(partial: Partial<WakeOptions>): Promise<WakeOptions>;
+  previewSound(id: string): Promise<void>;
+  stopPreview(): Promise<void>;
+};
+
+const DISABLED_AUTO_STATUS: AutoStatus = {
+  enabled: false,
+  hour: 0,
+  minute: 0,
+  daysMask: 0,
+  windowMinutes: 0,
+  currentTargetMs: 0,
+  usualBedMinute: 0,
+  apiConfidence: 0,
+};
+
+const DEFAULT_WAKE_OPTIONS: WakeOptions = {
+  sound: 'birds',
+  rampSeconds: 60,
+  dawnEnabled: true,
+  dawnMinutes: 30,
+  torch: false,
 };
 
 const fallback: SmartAlarmNative = {
@@ -67,6 +121,12 @@ const fallback: SmartAlarmNative = {
   deleteNight: async () => {},
   testRing: async () => {},
   markSummarySeen: async () => {},
+  configureAuto: async () => ({ ...DISABLED_AUTO_STATUS }),
+  getAutoStatus: async () => ({ ...DISABLED_AUTO_STATUS }),
+  getWakeOptions: async () => ({ ...DEFAULT_WAKE_OPTIONS }),
+  setWakeOptions: async () => ({ ...DEFAULT_WAKE_OPTIONS }),
+  previewSound: async () => {},
+  stopPreview: async () => {},
 };
 
 function loadNative(): SmartAlarmNative {
@@ -92,6 +152,12 @@ export const readNight = (sessionId: string) => native.readNight(sessionId);
 export const deleteNight = (sessionId: string) => native.deleteNight(sessionId);
 export const testRing = (delaySeconds: number) => native.testRing(delaySeconds);
 export const markSummarySeen = () => native.markSummarySeen();
+export const configureAuto = (cfg: AutoConfig) => native.configureAuto(cfg);
+export const getAutoStatus = () => native.getAutoStatus();
+export const getWakeOptions = () => native.getWakeOptions();
+export const setWakeOptions = (partial: Partial<WakeOptions>) => native.setWakeOptions(partial);
+export const previewSound = (id: string) => native.previewSound(id);
+export const stopPreview = () => native.stopPreview();
 
 export const isNativeAvailable = native !== fallback;
 
@@ -108,4 +174,10 @@ export const SmartAlarm = {
   deleteNight,
   testRing,
   markSummarySeen,
+  configureAuto,
+  getAutoStatus,
+  getWakeOptions,
+  setWakeOptions,
+  previewSound,
+  stopPreview,
 };
