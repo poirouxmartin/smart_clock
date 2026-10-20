@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" android:maxSdkVersion="28" />
 
     <application>
         <service
@@ -36,6 +38,18 @@
             android:exported="false" />
 
         <receiver
+            android:name="expo.modules.smartalarm.ProbeReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name="expo.modules.smartalarm.SleepApiReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name="expo.modules.smartalarm.DawnReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name="expo.modules.smartalarm.BootReceiver"
             android:exported="true">
             <intent-filter>
@@ -54,6 +68,8 @@
             android:launchMode="singleInstance"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+
+        <activity android:name="expo.modules.smartalarm.DawnActivity" android:exported="false" android:showWhenLocked="true" android:turnScreenOn="true" android:launchMode="singleTask" android:excludeFromRecents="true" android:taskAffinity="" android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
     </application>
 
 </manifest>

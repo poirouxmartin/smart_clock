@@ -10,4 +10,12 @@
     <string name="stop_night">Arrêter le suivi</string>
     <string name="channel_alarm">Alarme</string>
     <string name="channel_tracking">Suivi du sommeil</string>
+    <string name="channel_dawn">Lumière de l’aube</string>
+    <string name="dawn_title">Aube</string>
+    <string name="dawn_text">Ton écran s’éclaircit doucement</string>
+    <string name="dawn_hint">Touche pour éteindre la lumière</string>
+    <string name="channel_auto">Détection automatique du sommeil</string>
+    <string name="auto_tap_to_track">Sommeil détecté : touche pour lancer le suivi</string>
+    <string name="auto_awake_text">Déjà réveillé·e ? Ton réveil reste programmé.</string>
+    <string name="auto_cancel_alarm">Annuler le réveil</string>
 </resources>

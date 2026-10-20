@@ -10,6 +10,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "SmartAlarm"
+        private const val AUTO_TOLERANCE_MS = 30 * 60_000L
 
         internal fun startRing(ctx: Context, reason: String) {
             try {
@@ -33,7 +34,10 @@ class AlarmReceiver : BroadcastReceiver() {
     private fun onFire(ctx: Context, reason: String) {
         if (reason != "test") {
             val state = AlarmStore.state(ctx)
-            if (state == AlarmStore.RINGING || state == AlarmStore.DONE || state == AlarmStore.IDLE) {
+            // Auto mode arms the daily alarm without a session: it must ring even if no sleep was detected.
+            val autoDue = AutoStore.enabled(ctx) &&
+                kotlin.math.abs(System.currentTimeMillis() - AutoStore.currentTargetMs(ctx)) < AUTO_TOLERANCE_MS
+            if (state == AlarmStore.RINGING || ((state == AlarmStore.DONE || state == AlarmStore.IDLE) && !autoDue)) {
                 Log.i(TAG, "Ignoring $reason alarm, state=$state")
                 return
             }

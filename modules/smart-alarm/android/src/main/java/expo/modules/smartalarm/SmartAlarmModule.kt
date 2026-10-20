@@ -9,12 +9,8 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class SmartAlarmModule : Module() {
 
@@ -38,6 +34,12 @@ class SmartAlarmModule : Module() {
         AsyncFunction("deleteNight") { sessionId: String -> NightFile.delete(context, sessionId) }
         AsyncFunction("testRing") { delaySeconds: Int -> testRing(delaySeconds) }
         AsyncFunction("markSummarySeen") { markSummarySeen() }
+        AsyncFunction("getWakeOptions") { WakeOptions.toMap(context) }
+        AsyncFunction("setWakeOptions") { options: Map<String, Any?> -> setWakeOptions(options) }
+        AsyncFunction("previewSound") { id: String -> SoundPreview.play(context, id) }
+        AsyncFunction("stopPreview") { SoundPreview.stop() }
+        AsyncFunction("configureAuto") { cfg: Map<String, Any?> -> configureAuto(cfg) }
+        AsyncFunction("getAutoStatus") { AutoStore.toMap(context) }
     }
 
     private fun startNight(targetAtMs: Long, windowMinutes: Int): Map<String, Any?> {
@@ -45,35 +47,25 @@ class SmartAlarmModule : Module() {
         val now = System.currentTimeMillis()
         require(targetAtMs > now) { "targetAtMs must be in the future" }
         require(windowMinutes in 0..120) { "windowMinutes must be in 0..120" }
-
-        // Stop any previous night first so its onDestroy finalizes with the old session's data.
-        ctx.stopService(Intent(ctx, SleepTrackingService::class.java))
-
-        val sessionId = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date(now))
-        AlarmStore.edit(ctx) {
-            putString("state", AlarmStore.TRACKING)
-            putString("sessionId", sessionId)
-            putLong("startedAtMs", now)
-            putLong("targetAtMs", targetAtMs)
-            putInt("windowMinutes", windowMinutes)
-            putLong("firedAtMs", 0L)
-            remove("firedReason")
-            putBoolean("summarySeen", false)
-        }
-        NightFile.create(ctx, sessionId, now, targetAtMs, windowMinutes)
-        val exact = AlarmScheduler.scheduleFallback(ctx, targetAtMs)
-        ContextCompat.startForegroundService(ctx, Intent(ctx, SleepTrackingService::class.java))
+        val exact = NightSession.start(ctx, targetAtMs, windowMinutes)
         return mapOf("exactAlarm" to exact)
     }
 
     private fun cancelNight() {
+        NightSession.cancel(context)
+    }
+
+    private fun configureAuto(cfg: Map<String, Any?>): Map<String, Any?> {
         val ctx = context
-        AlarmScheduler.cancel(ctx)
-        ctx.stopService(Intent(ctx, SleepTrackingService::class.java))
-        if (AlarmStore.state(ctx) == AlarmStore.RINGING) {
-            ctx.startService(Intent(ctx, RingService::class.java).setAction(AlarmScheduler.ACTION_STOP))
-        }
-        AlarmStore.edit(ctx) { putString("state", AlarmStore.IDLE) }
+        AutoManager.configure(
+            ctx,
+            cfg["enabled"] as? Boolean ?: false,
+            (cfg["hour"] as? Number)?.toInt() ?: AutoStore.hour(ctx),
+            (cfg["minute"] as? Number)?.toInt() ?: AutoStore.minute(ctx),
+            (cfg["daysMask"] as? Number)?.toInt() ?: AutoStore.daysMask(ctx),
+            (cfg["windowMinutes"] as? Number)?.toInt() ?: AutoStore.windowMinutes(ctx),
+        )
+        return AutoStore.toMap(ctx)
     }
 
     private fun getStatus(): Map<String, Any?> {
@@ -152,5 +144,18 @@ class SmartAlarmModule : Module() {
 
     private fun markSummarySeen() {
         AlarmStore.edit(context) { putBoolean("summarySeen", true) }
+    }
+
+    private fun setWakeOptions(options: Map<String, Any?>): Map<String, Any?> {
+        val ctx = context
+        WakeOptions.save(
+            ctx,
+            sound = options["sound"] as? String,
+            rampSeconds = (options["rampSeconds"] as? Number)?.toInt(),
+            dawnEnabled = options["dawnEnabled"] as? Boolean,
+            dawnMinutes = (options["dawnMinutes"] as? Number)?.toInt(),
+            torch = options["torch"] as? Boolean,
+        )
+        return WakeOptions.toMap(ctx)
     }
 }

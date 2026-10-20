@@ -23,12 +23,17 @@ class BootReceiver : BroadcastReceiver() {
     }
 
     private fun onReschedule(ctx: Context) {
-        if (AlarmStore.state(ctx) != AlarmStore.TRACKING) return
+        if (AlarmStore.state(ctx) == AlarmStore.TRACKING) rescheduleTracking(ctx)
+        AutoManager.rearm(ctx)
+    }
+
+    private fun rescheduleTracking(ctx: Context) {
         val target = AlarmStore.targetAtMs(ctx)
         val now = System.currentTimeMillis()
         when {
             target > now -> {
                 AlarmScheduler.scheduleFallback(ctx, target)
+                DawnScheduler.schedule(ctx, AlarmStore.targetAtMs(ctx))
                 try {
                     ContextCompat.startForegroundService(ctx, Intent(ctx, SleepTrackingService::class.java))
                 } catch (e: Exception) {

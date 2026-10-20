@@ -10,4 +10,12 @@
     <string name="stop_night">Stop tracking</string>
     <string name="channel_alarm">Alarm</string>
     <string name="channel_tracking">Sleep tracking</string>
+    <string name="channel_dawn">Dawn light</string>
+    <string name="dawn_title">Dawn</string>
+    <string name="dawn_text">Your screen is slowly brightening</string>
+    <string name="dawn_hint">Tap to switch off the light</string>
+    <string name="channel_auto">Automatic sleep detection</string>
+    <string name="auto_tap_to_track">Sleep detected: tap to start tracking</string>
+    <string name="auto_awake_text">Already awake? Your alarm is still set.</string>
+    <string name="auto_cancel_alarm">Cancel alarm</string>
 </resources>
