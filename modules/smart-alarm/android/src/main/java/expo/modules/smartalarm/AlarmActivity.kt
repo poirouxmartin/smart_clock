@@ -49,6 +49,7 @@ class AlarmActivity : Activity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.attributes = window.attributes.apply { screenBrightness = 1f }
         current = WeakReference(this)
 
         val reason = intent.getStringExtra(AlarmScheduler.EXTRA_REASON) ?: "fallback"
