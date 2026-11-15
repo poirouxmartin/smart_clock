@@ -2,7 +2,7 @@
   "expo": {
     "name": "Aube",
     "slug": "smart_clock",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -38,7 +38,7 @@
         "monochromeImage": "./assets/adaptive-icon-mono.png"
       },
       "package": "com.poirouxmartin.smartclock",
-      "versionCode": 7,
+      "versionCode": 8,
       "permissions": [
         "FOREGROUND_SERVICE",
         "WAKE_LOCK",
