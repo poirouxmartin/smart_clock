@@ -9,7 +9,7 @@ import java.io.IOException
 
 /**
  * One JSON file per night in filesDir/nights/<sessionId>.json.
- * Epochs are [tMs, activity, maxDelta]. Writes go to a .tmp file and are renamed over the target.
+ * Epochs are [tMs, activity, maxDelta, samples]. Writes go to a .tmp file and are renamed over the target.
  */
 object NightFile {
     private const val TAG = "SmartAlarm"
@@ -17,7 +17,8 @@ object NightFile {
     const val EPOCH_MS = 60_000L
     private val ID_PATTERN = Regex("[A-Za-z0-9_-]+")
 
-    data class Epoch(val tMs: Long, val activity: Double, val maxDelta: Double)
+    /** samples: accelerometer events received during the epoch (-1 = unknown, older files). */
+    data class Epoch(val tMs: Long, val activity: Double, val maxDelta: Double, val samples: Int = -1)
 
     private fun dir(ctx: Context): File = File(ctx.filesDir, DIR).apply { mkdirs() }
 
@@ -78,7 +79,7 @@ object NightFile {
             val arr = JSONObject(text).optJSONArray("epochs") ?: return emptyList()
             (0 until arr.length()).map { i ->
                 val e = arr.getJSONArray(i)
-                Epoch(e.getLong(0), e.getDouble(1), e.getDouble(2))
+                Epoch(e.getLong(0), e.getDouble(1), e.getDouble(2), e.optInt(3, -1))
             }
         } catch (e: Exception) {
             Log.w(TAG, "Unreadable night file $sessionId", e)
@@ -88,7 +89,7 @@ object NightFile {
 
     private fun epochsToJson(epochs: List<Epoch>): JSONArray {
         val arr = JSONArray()
-        epochs.forEach { arr.put(JSONArray().put(it.tMs).put(it.activity).put(it.maxDelta)) }
+        epochs.forEach { arr.put(JSONArray().put(it.tMs).put(it.activity).put(it.maxDelta).put(it.samples)) }
         return arr
     }
 

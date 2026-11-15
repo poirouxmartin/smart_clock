@@ -4,7 +4,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -23,9 +26,7 @@ import androidx.core.content.ContextCompat
 import java.util.Date
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import kotlin.math.abs
 import kotlin.math.max
-import kotlin.math.sqrt
 
 /** Overnight accelerometer tracking. Samples at 20 Hz, closes an epoch every minute. */
 class SleepTrackingService : Service(), SensorEventListener {
@@ -47,6 +48,11 @@ class SleepTrackingService : Service(), SensorEventListener {
 
         @Volatile
         var lastActivity: Double = 0.0
+
+        @Volatile
+        var lastSamples: Int = 0
+
+        private const val EXPECTED_SAMPLES = (NightFile.EPOCH_MS * 1000 / SAMPLING_PERIOD_US).toInt()
     }
 
     private var sessionId = ""
@@ -55,17 +61,23 @@ class SleepTrackingService : Service(), SensorEventListener {
     private val epochs = mutableListOf<NightFile.Epoch>()
 
     // Sensor-thread state (only touched on sensorHandler's thread after start).
-    private var accActivity = 0.0
-    private var accMaxDelta = 0.0
-    private var gravity = 0.0
-    private var gravityInit = false
+    private val accumulator = EpochAccumulator()
 
     private var sensorManager: SensorManager? = null
+    private var accelerometer: Sensor? = null
     private var sensorThread: HandlerThread? = null
     private var sensorHandler: Handler? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
     private var listening = false
+    private var screenReceiverRegistered = false
+
+    // Some devices stop delivering sensor events after screen off unless the listener is registered again.
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            sensorHandler?.post { if (listening) reregisterListener("screen off") }
+        }
+    }
 
     private val epochTick = object : Runnable {
         override fun run() {
@@ -123,39 +135,52 @@ class SleepTrackingService : Service(), SensorEventListener {
         sensorManager = sm
         sensorThread = thread
         sensorHandler = handler
-        gravityInit = false
-        accActivity = 0.0
-        accMaxDelta = 0.0
+        accelerometer = accel
 
         listening = true
         if (accel == null) {
             Log.w(TAG, "No accelerometer: night relies on the target-time fallback")
         } else {
             sm.registerListener(this, accel, SAMPLING_PERIOD_US, 0, handler)
+            ContextCompat.registerReceiver(
+                this,
+                screenOffReceiver,
+                IntentFilter(Intent.ACTION_SCREEN_OFF),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+            screenReceiverRegistered = true
         }
         handler.postDelayed(epochTick, NightFile.EPOCH_MS)
+    }
+
+    /** Runs on the sensor thread. */
+    private fun reregisterListener(why: String) {
+        val sm = sensorManager ?: return
+        val accel = accelerometer ?: return
+        Log.w(TAG, "Re-registering accelerometer listener ($why)")
+        sm.unregisterListener(this)
+        sm.registerListener(this, accel, SAMPLING_PERIOD_US, 0, sensorHandler)
+    }
+
+    private fun unregisterScreenReceiver() {
+        if (!screenReceiverRegistered) return
+        screenReceiverRegistered = false
+        try {
+            unregisterReceiver(screenOffReceiver)
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "Screen receiver already unregistered", e)
+        }
     }
 
     private fun stopListening() {
         listening = false
         sensorManager?.unregisterListener(this)
         sensorHandler?.removeCallbacks(epochTick)
+        unregisterScreenReceiver()
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        val x = event.values[0].toDouble()
-        val y = event.values[1].toDouble()
-        val z = event.values[2].toDouble()
-        val m = sqrt(x * x + y * y + z * z)
-        if (!gravityInit) {
-            gravity = m
-            gravityInit = true
-        } else {
-            gravity = 0.9 * gravity + 0.1 * m
-        }
-        val d = abs(m - gravity)
-        accActivity += WakeDecider.contribution(d)
-        accMaxDelta = max(accMaxDelta, d)
+        accumulator.add(event.values[0].toDouble(), event.values[1].toDouble(), event.values[2].toDouble())
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
@@ -163,12 +188,17 @@ class SleepTrackingService : Service(), SensorEventListener {
     /** Runs on the sensor thread. */
     private fun closeEpoch() {
         val now = System.currentTimeMillis()
-        val activity = accActivity
-        epochs.add(NightFile.Epoch(now, activity, accMaxDelta))
-        accActivity = 0.0
-        accMaxDelta = 0.0
+        val res = accumulator.close()
+        val activity = res.activity
+        epochs.add(NightFile.Epoch(now, activity, res.maxDelta, res.samples))
         epochCount = epochs.size
         lastActivity = activity
+        lastSamples = res.samples
+        Log.i(TAG, "Epoch: samples=${res.samples} activity=$activity maxDelta=${res.maxDelta} floor=${accumulator.noiseFloor}")
+
+        if (listening && accelerometer != null && res.samples < EXPECTED_SAMPLES / 10) {
+            reregisterListener("only ${res.samples}/$EXPECTED_SAMPLES samples")
+        }
 
         if (epochs.size % SAVE_EVERY_EPOCHS == 0) {
             NightFile.rewrite(applicationContext, sessionId, epochs.toList())
@@ -274,6 +304,7 @@ class SleepTrackingService : Service(), SensorEventListener {
         wakeLock = null
         epochCount = 0
         lastActivity = 0.0
+        lastSamples = 0
         super.onDestroy()
     }
 }
