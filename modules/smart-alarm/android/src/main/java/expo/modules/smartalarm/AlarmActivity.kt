@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.format.DateFormat
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
@@ -22,6 +23,7 @@ class AlarmActivity : Activity() {
 
     companion object {
         private var current: WeakReference<AlarmActivity>? = null
+        private const val MAX_START_P = 0.6
 
         /** Called by RingService when ringing ends. */
         fun finishCurrent() {
@@ -40,6 +42,25 @@ class AlarmActivity : Activity() {
         }
     }
 
+    private lateinit var rootView: View
+    private lateinit var subtitleView: TextView
+    private var startP = 0.0
+    private var rampMs = 0L
+    private var createdAt = 0L
+
+    /** Light rises from the dawn progress to full over the sound ramp. */
+    private val lightTick = object : Runnable {
+        override fun run() {
+            val p = DawnCurve.ringProgress(startP, System.currentTimeMillis() - createdAt, rampMs)
+            rootView.setBackgroundColor(DawnCurve.color(p))
+            window.attributes = window.attributes.apply { screenBrightness = DawnCurve.brightness(p) }
+            val text = if (p < 0.75) Color.WHITE else 0xFF3A2410.toInt()
+            timeView.setTextColor(text)
+            subtitleView.setTextColor(text)
+            if (p < 1.0) handler.postDelayed(this, 1_000L)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= 27) {
@@ -49,10 +70,20 @@ class AlarmActivity : Activity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window.attributes = window.attributes.apply { screenBrightness = 1f }
         current = WeakReference(this)
 
         val reason = intent.getStringExtra(AlarmScheduler.EXTRA_REASON) ?: "fallback"
+        val now = System.currentTimeMillis()
+        val targetMs = AlarmStore.targetAtMs(this)
+        // Continue from the dawn already shown, capped so the last stretch always rises with the
+        // sound; a stale target (auto night without a session) starts from dark.
+        startP = if (reason != "test" && WakeOptions.dawnEnabled(this) && targetMs > 0L && now <= targetMs + 5 * 60_000L) {
+            minOf(MAX_START_P, DawnCurve.progress(now, targetMs - WakeOptions.dawnMinutes(this) * 60_000L, targetMs))
+        } else {
+            0.0
+        }
+        rampMs = WakeOptions.rampSeconds(this) * 1000L
+        createdAt = now
 
         timeView = TextView(this).apply {
             textSize = 72f
@@ -80,7 +111,6 @@ class AlarmActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.BLACK)
             addView(
                 timeView,
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT),
@@ -97,6 +127,9 @@ class AlarmActivity : Activity() {
             )
         }
         setContentView(root)
+        rootView = root
+        subtitleView = subtitle
+        lightTick.run()
         clockTick.run()
     }
 

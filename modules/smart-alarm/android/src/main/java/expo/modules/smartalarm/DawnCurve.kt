@@ -17,6 +17,14 @@ object DawnCurve {
         return ((nowMs - startMs).toDouble() / (endMs - startMs)).coerceIn(0.0, 1.0)
     }
 
+    /** Ring-screen progress: from startP up to 1 over rampMs; 1.0 if rampMs <= 0. */
+    fun ringProgress(startP: Double, elapsedMs: Long, rampMs: Long): Double {
+        if (rampMs <= 0) return 1.0
+        val s = startP.coerceIn(0.0, 1.0)
+        val f = (maxOf(elapsedMs, 0L).toDouble() / rampMs).coerceAtMost(1.0)
+        return s + (1.0 - s) * f
+    }
+
     /** Screen brightness, quadratic ramp from MIN_BRIGHTNESS to 1. */
     fun brightness(p: Double): Float = MIN_BRIGHTNESS + (1f - MIN_BRIGHTNESS) * (p * p).toFloat()
 
