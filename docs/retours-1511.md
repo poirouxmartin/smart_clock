@@ -101,7 +101,35 @@ Note : l'écran Réglages montre encore d'anciennes préférences de son qui ne 
 
 L'APK de la release `v1.4.0` (CI, clé release) s'installe par-dessus la 1.3.0 sans désinstaller : vérifié sur émulateur (versionCode 6 → 7, date de première installation conservée, appli lancée).
 
-Aube n'a aucun mécanisme de mise à jour automatique : la nouvelle version doit être téléchargée et installée à la main depuis la release.
+Aube 1.4.0 n'a aucun mécanisme de mise à jour : la 1.4.1 (ou suivante) devra être installée une dernière fois à la main.
+
+## Point 5 : mise à jour proposée dans l'appli (commit ea03f4d, version 1.4.1)
+
+- Au démarrage, au plus une fois par jour, Aube lit la dernière release GitHub (API `releases/latest`, premier asset `.apk`).
+- Si elle est plus récente que la version installée, l'accueil affiche une bannière « Nouvelle version x.y.z disponible » avec un bouton Installer et un bouton Plus tard.
+- Installer télécharge l'APK et vérifie le nom du paquet, que la version correspond et que le versionCode est supérieur. Si Android le demande, la bannière ouvre ensuite le réglage « Installer des applis inconnues » pour Aube, puis lance l'installeur Android (permission `REQUEST_INSTALL_PACKAGES`, FileProvider).
+- Mécanisme repris de Certo (sure-weather).
+- Le dépôt des releases est une seule constante : `AppUpdater.RELEASES_REPO`, dans `modules/smart-alarm/android/src/main/java/expo/modules/smartalarm/AppUpdater.kt`. Le JS la reçoit du natif.
+- Tests : Jest 131/131 (dont 15 sur la mise à jour), Kotlin 60/60 (dont 6 sur les URL acceptées), `tsc` sans nouvelle erreur.
+
+**Test sur émulateur (fausse release locale)** :
+- Une 1.4.0 de test pointait vers un serveur local publiant une release `v1.4.1` avec un vrai APK 1.4.1, les deux signés avec la même clé.
+- Constaté dans l'ordre : la bannière est apparue, puis le téléchargement et les contrôles ont réussi, puis Android a demandé l'autorisation.
+- Après « Update » dans l'installeur Android, l'appli est passée en 1.4.1 (versionCode 8, données conservées). Au relancement, plus de bannière.
+- Captures : `docs/captures/maj-banniere.png`, `docs/captures/maj-installeur.png`.
+- Ce redirigement vers le serveur local n'est pas commité.
+
+**Bloquant : le dépôt `poirouxmartin/smart_clock` est privé.**
+- Sans connexion, GitHub répond 404 à l'API et aux APK (constaté sur émulateur). L'appli n'a pas de jeton, et ne doit pas en avoir.
+- Telle quelle, la 1.4.1 ne verra donc aucune mise à jour.
+- Martin doit choisir l'une des deux options :
+  - **A. Dépôt public de releases** (ex. `poirouxmartin/aube-releases`, contenant uniquement des APK) :
+    - créer le dépôt ;
+    - mettre `RELEASES_REPO = "poirouxmartin/aube-releases"` ;
+    - ajouter dans la CI une étape qui y publie l'APK, avec un jeton à droits d'écriture sur ce dépôt dans les secrets de `smart_clock` ;
+    - refaire le commit de version et le tag 1.4.1 après ce changement, car la constante est compilée dans l'APK.
+    - Le code reste privé.
+  - **B. Rendre `smart_clock` public** : rien à changer dans le code, la 1.4.1 actuelle fonctionne telle quelle. Le code et tout l'historique deviennent visibles.
 
 ## À vérifier sur une vraie nuit
 
@@ -114,6 +142,6 @@ Aube n'a aucun mécanisme de mise à jour automatique : la nouvelle version doit
 
 ## Décisions en attente
 
-- Ajouter une vérification de mise à jour dans l'appli (voir ci-dessus).
+- Rendre les releases accessibles : option A ou B (point 5), puis pousser et publier la 1.4.1.
 - Fusionner dans `master` (la 1.3.0 elle-même n'y est toujours pas fusionnée).
 - Évolution possible, discutée mais non faite : sans signal de mouvement, réveiller sur une limite de cycle de 90 min prédite plutôt qu'à l'heure limite. Cela change l'algorithme convenu, il faut l'accord de Martin.
