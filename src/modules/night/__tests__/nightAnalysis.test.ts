@@ -1,4 +1,4 @@
-import { analyzeNight, NightRecord } from '../nightAnalysis';
+import { analyzeNight, NightRecord, sensorStats } from '../nightAnalysis';
 
 const T0 = Date.UTC(2026, 0, 10, 23, 0, 0);
 const MIN = 60000;
@@ -22,7 +22,7 @@ describe('analyzeNight', () => {
   it('handles an empty night', () => {
     const s = analyzeNight(makeNight([]));
     expect(s.states).toEqual([]);
-    expect(s.pct).toEqual({ wake: 0, light: 0, calm: 0 });
+    expect(s.pct).toEqual({ wake: 0, light: 0, calm: 0, unknown: 0 });
     expect(s.signal).toBe('none');
     expect(s.sleepOnsetMs).toBeNull();
     expect(s.asleepMin).toBe(0);
@@ -33,7 +33,7 @@ describe('analyzeNight', () => {
     const s = analyzeNight(makeNight(new Array(60).fill(0)));
     expect(s.signal).toBe('low');
     expect(s.states.every(st => st === 'calm')).toBe(true);
-    expect(s.pct).toEqual({ wake: 0, light: 0, calm: 100 });
+    expect(s.pct).toEqual({ wake: 0, light: 0, calm: 100, unknown: 0 });
     expect(s.sleepOnsetMs).toBe(T0);
     expect(s.asleepMin).toBe(60);
     expect(s.durationMin).toBe(60);
@@ -51,7 +51,7 @@ describe('analyzeNight', () => {
     expect(s.asleepMin).toBe(100);
     expect(s.states[50]).toBe('light');
     expect(s.states[100]).toBe('calm');
-    expect(s.pct).toEqual({ wake: 17, light: 7, calm: 76 });
+    expect(s.pct).toEqual({ wake: 17, light: 7, calm: 76, unknown: 0 });
     expect(s.signal).toBe('ok');
     expect(s.durationMin).toBe(120);
   });
@@ -59,7 +59,7 @@ describe('analyzeNight', () => {
   it('classifies sustained high activity as wake', () => {
     const s = analyzeNight(makeNight(new Array(30).fill(50)));
     expect(s.states.every(st => st === 'wake')).toBe(true);
-    expect(s.pct).toEqual({ wake: 100, light: 0, calm: 0 });
+    expect(s.pct).toEqual({ wake: 100, light: 0, calm: 0, unknown: 0 });
     expect(s.sleepOnsetMs).toBeNull();
     expect(s.asleepMin).toBe(0);
     expect(s.signal).toBe('ok');
@@ -82,6 +82,42 @@ describe('analyzeNight', () => {
     const activity = [0, 0, 5, 35, 35, 35, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
     const s = analyzeNight(makeNight(activity));
     expect(Number.isInteger(s.pct.wake)).toBe(true);
-    expect(s.pct.wake + s.pct.light + s.pct.calm).toBe(100);
+    expect(s.pct.wake + s.pct.light + s.pct.calm + s.pct.unknown).toBe(100);
+  });
+
+  it('reports low signal for the reported night (calm 99 %, phone handled at start and end only)', () => {
+    const activity = new Array(480).fill(0);
+    for (const i of [0, 1, 2, 477, 478, 479]) activity[i] = 50;
+    const s = analyzeNight(makeNight(activity));
+    expect(s.signal).toBe('low');
+    expect(s.pct.calm).toBeGreaterThanOrEqual(95);
+  });
+
+  it('reports ok signal when the core of the night has movement bursts', () => {
+    const activity = new Array(480).fill(0);
+    for (let b = 90; b < 480; b += 90) for (let i = 0; i < 3; i++) activity[b + i] = 5;
+    const s = analyzeNight(makeNight(activity));
+    expect(s.signal).toBe('ok');
+    expect(s.pct.light).toBeGreaterThan(0);
+  });
+
+  it('reports nosensor when most epochs have too few samples', () => {
+    const epochs = new Array(480).fill(0).map(
+      (_, i) => [T0 + (i + 1) * MIN, 0, 0, i < 400 ? 0 : 1200] as [number, number, number, number],
+    );
+    const s = analyzeNight(makeNight(new Array(480).fill(0), { epochs }));
+    expect(s.signal).toBe('nosensor');
+    expect(s.pct.unknown).toBeGreaterThanOrEqual(80);
+    expect(s.states).toContain('unknown');
+    expect(s.pct.wake + s.pct.light + s.pct.calm + s.pct.unknown).toBe(100);
+    expect(sensorStats(makeNight([], { epochs })).knownEpochs).toBe(480);
+  });
+
+  it('still handles old 3-element epochs (samples unknown)', () => {
+    const night = makeNight(new Array(60).fill(0));
+    const s = analyzeNight(night);
+    expect(s.states).not.toContain('unknown');
+    expect(s.pct.unknown).toBe(0);
+    expect(sensorStats(night)).toEqual({ knownEpochs: 0, meanSamples: null });
   });
 });
