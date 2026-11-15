@@ -6,7 +6,7 @@ Martin a testé Aube pendant une nuit. Trois retours :
 2. Le réveil a joué une sonnerie d'alarme par défaut. Il voulait un réveil doux : lumière du téléphone qui monte, sons naturels (oiseaux, mer, forêt, orage…).
 3. L'hypnogramme affichait "calme 99 %" toute la nuit, et il a été réveillé à 9 h (l'heure limite) car aucun moment de sommeil léger n'a été détecté.
 
-Tout est sur la branche `dev/poiroux/reveil-doux` (locale, non poussée), version 1.4.0 (versionCode 7).
+Tout est sur la branche `dev/poiroux/reveil-doux`, version 1.4.0 (versionCode 7), publiée le 15/11 en release GitHub `v1.4.0` (APK signé par la CI avec la clé release) : https://github.com/poirouxmartin/smart_clock/releases/download/v1.4.0/aube-v1.4.0.apk
 
 ## Hypothèse de version
 
@@ -99,7 +99,9 @@ Note : l'écran Réglages montre encore d'anciennes préférences de son qui ne 
 - `android/app/build/outputs/apk/release/app-release.apk` : autonome, mais signé avec la clé de debug (la clé release n'existe qu'en CI). Il ne s'installe pas par-dessus la 1.3.0 de GitHub sans désinstaller d'abord, ce qui efface l'historique des nuits et les réglages locaux.
 - `android/app/build/outputs/apk/debug/app-debug.apk` : nécessite le serveur Metro, inutilisable pour une nuit.
 
-Pour un APK qui s'installe par-dessus l'existant, il faut pousser la branche et la faire construire par la CI avec la clé release. Accord de Martin nécessaire.
+L'APK de la release `v1.4.0` (CI, clé release) s'installe par-dessus la 1.3.0 sans désinstaller : vérifié sur émulateur (versionCode 6 → 7, date de première installation conservée, appli lancée).
+
+Aube n'a aucun mécanisme de mise à jour automatique : la nouvelle version doit être téléchargée et installée à la main depuis la release.
 
 ## À vérifier sur une vraie nuit
 
@@ -112,6 +114,6 @@ Pour un APK qui s'installe par-dessus l'existant, il faut pousser la branche et 
 
 ## Décisions en attente
 
-- Pousser la branche / obtenir un APK signé par la CI.
+- Ajouter une vérification de mise à jour dans l'appli (voir ci-dessus).
 - Fusionner dans `master` (la 1.3.0 elle-même n'y est toujours pas fusionnée).
 - Évolution possible, discutée mais non faite : sans signal de mouvement, réveiller sur une limite de cycle de 90 min prédite plutôt qu'à l'heure limite. Cela change l'algorithme convenu, il faut l'accord de Martin.
