@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useI18n } from '@/modules/i18n';
 import { NightRepository } from '@/modules/night/NightRepository';
 import type { EpochState, NightSummary } from '@/modules/night/nightAnalysis';
-import { Colors, Typography, Spacing, Radius } from '@/theme';
+import { makeTypography, Spacing, Radius, useTheme, asGradient, type Palette } from '@/theme';
 import type { RootStackParamList } from '@/types';
 
 type SummaryRoute = RouteProp<RootStackParamList, 'NightSummary'>;
@@ -15,19 +15,14 @@ type SummaryNav = NavigationProp<RootStackParamList>;
 
 const MAX_BARS = 120;
 
-const STATE_COLORS: Record<EpochState, string> = {
-  calm: '#1e3a8a',
-  light: '#38bdf8',
-  wake: '#f59e0b',
-};
-
 const STATE_HEIGHTS: Record<EpochState, number> = {
   calm: 64,
+  unknown: 24,
   light: 36,
   wake: 14,
 };
 
-const SEVERITY: Record<EpochState, number> = { calm: 0, light: 1, wake: 2 };
+const SEVERITY: Record<EpochState, number> = { calm: 0, unknown: 1, light: 2, wake: 3 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const hm = (ms: number) => {
@@ -56,6 +51,9 @@ export function NightSummaryScreen() {
   const route = useRoute<SummaryRoute>();
   const { t, currentLocale } = useI18n();
   const tn = (key: string, options?: Record<string, any>) => t(key, options, 'night');
+  const { palette: c } = useTheme();
+  const styles = useMemo(() => makeStyles(c), [c]);
+  const stateColors: Record<EpochState, string> = c.hypno;
   const sessionId = route.params.sessionId;
 
   const [summary, setSummary] = useState<NightSummary | null>(null);
@@ -101,7 +99,7 @@ export function NightSummaryScreen() {
   const header = (
     <View style={styles.header}>
       <TouchableOpacity style={styles.backButton} onPress={goBack}>
-        <Ionicons name="arrow-back" size={22} color={Colors.textSecondary} />
+        <Ionicons name="arrow-back" size={22} color={c.textSecondary} />
       </TouchableOpacity>
       <Text style={styles.title}>{tn('summaryTitle')}</Text>
     </View>
@@ -109,11 +107,11 @@ export function NightSummaryScreen() {
 
   if (loading) {
     return (
-      <LinearGradient colors={['#0a0e1a', '#0f172a', '#1e1b4b']} style={styles.container}>
+      <LinearGradient colors={asGradient(c.background)} style={styles.container}>
         <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           {header}
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={c.primary} />
           </View>
         </SafeAreaView>
       </LinearGradient>
@@ -122,7 +120,7 @@ export function NightSummaryScreen() {
 
   if (!summary) {
     return (
-      <LinearGradient colors={['#0a0e1a', '#0f172a', '#1e1b4b']} style={styles.container}>
+      <LinearGradient colors={asGradient(c.background)} style={styles.container}>
         <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           {header}
           <View style={styles.center}>
@@ -140,7 +138,7 @@ export function NightSummaryScreen() {
   });
 
   return (
-    <LinearGradient colors={['#0a0e1a', '#0f172a', '#1e1b4b']} style={styles.container}>
+    <LinearGradient colors={asGradient(c.background)} style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         {header}
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -166,15 +164,19 @@ export function NightSummaryScreen() {
           </View>
 
           <View style={styles.card}>
-            <Ionicons name="alarm-outline" size={18} color={Colors.accent} />
+            <Ionicons name="alarm-outline" size={18} color={c.accent} />
             <Text style={styles.reasonText}>{wakeReason(summary)}</Text>
           </View>
 
           {summary.signal !== 'ok' && (
             <View style={[styles.card, styles.warningCard]}>
-              <Ionicons name="warning-outline" size={18} color={Colors.warning} />
+              <Ionicons name="warning-outline" size={18} color={c.warning} />
               <Text style={styles.warningText}>
-                {summary.signal === 'none' ? tn('signalNone') : tn('signalLow')}
+                {summary.signal === 'none'
+                  ? tn('signalNone')
+                  : summary.signal === 'nosensor'
+                    ? tn('signalNoSensor')
+                    : tn('signalLow')}
               </Text>
             </View>
           )}
@@ -185,24 +187,30 @@ export function NightSummaryScreen() {
               {bars.map((st, i) => (
                 <View
                   key={i}
-                  style={[styles.bar, { height: STATE_HEIGHTS[st], backgroundColor: STATE_COLORS[st] }]}
+                  style={[styles.bar, { height: STATE_HEIGHTS[st], backgroundColor: stateColors[st] }]}
                 />
               ))}
             </View>
 
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: STATE_COLORS.calm }]} />
+                <View style={[styles.legendDot, { backgroundColor: stateColors.calm }]} />
                 <Text style={styles.legendText}>{tn('legendCalm')} {summary.pct.calm}%</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: STATE_COLORS.light }]} />
+                <View style={[styles.legendDot, { backgroundColor: stateColors.light }]} />
                 <Text style={styles.legendText}>{tn('legendLight')} {summary.pct.light}%</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: STATE_COLORS.wake }]} />
+                <View style={[styles.legendDot, { backgroundColor: stateColors.wake }]} />
                 <Text style={styles.legendText}>{tn('legendWake')} {summary.pct.wake}%</Text>
               </View>
+              {summary.pct.unknown > 0 && (
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: stateColors.unknown }]} />
+                  <Text style={styles.legendText}>{tn('legendUnknown')} {summary.pct.unknown}%</Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -217,38 +225,41 @@ export function NightSummaryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => {
+  const T = makeTypography(c);
+  return StyleSheet.create({
   container: { flex: 1 },
   safe: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.md },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.bgSurface, alignItems: 'center', justifyContent: 'center' },
-  title: { ...Typography.h2 },
+  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.bgSurface, alignItems: 'center', justifyContent: 'center' },
+  title: { ...T.h2 },
   scrollContent: { padding: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: 60 },
-  date: { ...Typography.body, color: Colors.textMuted, textTransform: 'capitalize', marginBottom: Spacing.lg },
-  muted: { ...Typography.bodySmall, color: Colors.textMuted },
+  date: { ...T.body, color: c.textMuted, textTransform: 'capitalize', marginBottom: Spacing.lg },
+  muted: { ...T.bodySmall, color: c.textMuted },
 
-  statsCard: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: Colors.bgCard, borderRadius: Radius.xl, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.md },
+  statsCard: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: c.bgCard, borderRadius: Radius.xl, padding: Spacing.lg, borderWidth: 1, borderColor: c.border, marginBottom: Spacing.md },
   statItem: { width: '50%', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
-  statLabel: { ...Typography.caption },
-  statValue: { fontSize: 20, fontWeight: '700', color: Colors.text, marginTop: 2 },
+  statLabel: { ...T.caption },
+  statValue: { fontSize: 20, fontWeight: '700', color: c.text, marginTop: 2 },
 
-  card: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.bgCard, borderRadius: Radius.xl, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.md },
-  reasonText: { ...Typography.bodySmall, color: Colors.textSecondary, flex: 1 },
+  card: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: c.bgCard, borderRadius: Radius.xl, padding: Spacing.lg, borderWidth: 1, borderColor: c.border, marginBottom: Spacing.md },
+  reasonText: { ...T.bodySmall, color: c.textSecondary, flex: 1 },
   cardColumn: { flexDirection: 'column', alignItems: 'stretch' },
-  warningCard: { borderColor: Colors.warning + '60' },
-  warningText: { ...Typography.bodySmall, color: Colors.warning, flex: 1 },
+  warningCard: { borderColor: c.warning + '60' },
+  warningText: { ...T.bodySmall, color: c.warning, flex: 1 },
 
-  cardTitle: { ...Typography.label, marginBottom: Spacing.md },
+  cardTitle: { ...T.label, marginBottom: Spacing.md },
   hypnoRow: { flexDirection: 'row', alignItems: 'flex-end', height: 70 },
   bar: { flex: 1, borderRadius: 1, marginHorizontal: 0.2 },
   legendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: Spacing.md, flexWrap: 'wrap', gap: Spacing.sm },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { ...Typography.caption, color: Colors.textSecondary },
+  legendText: { ...T.caption, color: c.textSecondary },
 
-  disclaimer: { ...Typography.caption, lineHeight: 18, marginTop: Spacing.sm, marginBottom: Spacing.xl },
+  disclaimer: { ...T.caption, lineHeight: 18, marginTop: Spacing.sm, marginBottom: Spacing.xl },
 
-  backButtonWide: { alignItems: 'center', paddingVertical: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.bgSurface },
-  backButtonText: { ...Typography.bodySmall, color: Colors.text, fontWeight: '600' },
+  backButtonWide: { alignItems: 'center', paddingVertical: Spacing.lg, borderRadius: Radius.xl, backgroundColor: c.bgSurface },
+  backButtonText: { ...T.bodySmall, color: c.text, fontWeight: '600' },
 });
+};

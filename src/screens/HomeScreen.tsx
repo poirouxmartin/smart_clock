@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, AppState, Platform, PermissionsAndroid, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, type NavigationProp } from '@react-navigation/native';
@@ -10,9 +10,9 @@ import { getDatabaseService } from '@/modules/user-profile/DatabaseService';
 import { NightRepository } from '@/modules/night/NightRepository';
 import type { NightSummary } from '@/modules/night/nightAnalysis';
 import { SmartAlarm } from '../../modules/smart-alarm';
-import type { AutoStatus, NightStatus, PermissionStatus, WakeOptions, WakeSound } from '../../modules/smart-alarm';
+import type { AutoStatus, NightStatus, PermissionStatus, WakeLogEntry, WakeOptions, WakeSound } from '../../modules/smart-alarm';
 import { ALL_DAYS, DAY_KEYS, describeNextTarget, formatMinuteOfDay, isDayOn, toggleDay } from '@/modules/night/autoConfig';
-import { Colors, Typography, Spacing, Radius } from '@/theme';
+import { makeTypography, Spacing, Radius, useTheme, THEME_IDS, PALETTES, asGradient, type Palette } from '@/theme';
 import type { RootStackParamList } from '@/types';
 
 type HomeNav = NavigationProp<RootStackParamList>;
@@ -29,8 +29,11 @@ const SOUND_CHOICES: Array<{ id: WakeSound; labelKey: string }> = [
   { id: 'forest', labelKey: 'soundForest' },
   { id: 'rain', labelKey: 'soundRain' },
   { id: 'stream', labelKey: 'soundStream' },
-  { id: 'system', labelKey: 'soundSystem' },
+  { id: 'storm', labelKey: 'soundStorm' },
 ];
+const SOUND_LABEL_KEYS: Record<string, string> = Object.fromEntries(SOUND_CHOICES.map(s => [s.id, s.labelKey]));
+const THEME_LABEL_KEYS = { night: 'themeNight', nature: 'themeNature', dawn: 'themeDawn' } as const;
+const WAKE_REASON_KEYS: Record<string, string> = { smart: 'logReasonSmart', fallback: 'logReasonFallback', test: 'logReasonTest' };
 const RAMP_CHOICES = [30, 60, 120];
 const DAWN_CHOICES = [15, 30, 45];
 
@@ -57,7 +60,15 @@ const PERM_ROWS: Array<{ key: PermKey; labelKey: string; required: boolean }> = 
   { key: 'ignoringBatteryOptimizations', labelKey: 'permBattery', required: false },
 ];
 
+function greetingKey(hour: number): string {
+  if (hour < 5 || hour >= 22) return 'greetingNight';
+  if (hour < 18) return 'greetingMorning';
+  return 'greetingEvening';
+}
+
 export function HomeScreen() {
+  const { palette: c, themeId, setThemeId } = useTheme();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const navigation = useNavigation<HomeNav>();
   const { t, formatTime, currentLocale } = useI18n();
   const tn = (key: string, options?: Record<string, any>) => t(key, options, 'night');
@@ -71,6 +82,8 @@ export function HomeScreen() {
   const [loaded, setLoaded] = useState(false);
   const [autoStatus, setAutoStatus] = useState<AutoStatus | null>(null);
   const [activityDenied, setActivityDenied] = useState(false);
+  const [lastWake, setLastWake] = useState<WakeLogEntry | null>(null);
+  const [appVersion, setAppVersion] = useState('');
   const [wake, setWake] = useState<WakeOptions>({ sound: 'birds', rampSeconds: 60, dawnEnabled: true, dawnMinutes: 30, torch: false });
 
   useEffect(() => {
@@ -202,6 +215,11 @@ export function HomeScreen() {
           const summaries = await NightRepository.syncNights();
           if (!active) return;
           setLatest(summaries[0] ?? null);
+          const log = await SmartAlarm.getWakeLog();
+          if (!active) return;
+          setLastWake(log[0] ?? null);
+          const version = await SmartAlarm.getAppVersion();
+          if (active) setAppVersion(version);
           if (st.state === 'done' && !st.summarySeen && st.sessionId) {
             await SmartAlarm.markSummarySeen();
             navigation.navigate('NightSummary', { sessionId: st.sessionId });
@@ -280,21 +298,28 @@ export function HomeScreen() {
   })();
 
   return (
-    <LinearGradient colors={['#0a0e1a', '#0f172a', '#1e1b4b']} style={styles.container}>
+    <LinearGradient colors={asGradient(c.background)} style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
+            <Text style={styles.greeting}>{tn(greetingKey(new Date().getHours()))}</Text>
             <Text style={styles.clock}>{clock}</Text>
+            <Text style={styles.dateLine}>
+              {new Date().toLocaleDateString(currentLocale, { weekday: 'long', day: 'numeric', month: 'long' })}
+            </Text>
           </View>
 
           <View style={styles.card}>
             <View style={styles.switchRow}>
-              <Text style={styles.cardTitle}>{tn('autoTitle')}</Text>
+              <View style={styles.cardHeaderInline}>
+                <Ionicons name="leaf-outline" size={18} color={c.primary} />
+                <Text style={styles.cardTitleInline}>{tn('autoTitle')}</Text>
+              </View>
               <Switch
                 value={settings.auto}
                 onValueChange={onToggleAuto}
-                trackColor={{ false: Colors.bgSurface, true: Colors.primary }}
-                thumbColor="#fff"
+                trackColor={{ false: c.bgSurface, true: c.primaryDark }}
+                thumbColor={c.text}
               />
             </View>
             {settings.auto && (
@@ -321,8 +346,8 @@ export function HomeScreen() {
 
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="alarm-outline" size={18} color={Colors.primary} />
-              <Text style={styles.cardTitle}>{tn('smartAlarm')}</Text>
+              <Ionicons name="alarm-outline" size={18} color={c.primary} />
+              <Text style={styles.cardTitleInline}>{tn('smartAlarm')}</Text>
             </View>
 
             <Text style={styles.label}>{tn('target')}</Text>
@@ -354,7 +379,10 @@ export function HomeScreen() {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{tn('wakeStyleTitle')}</Text>
+            <View style={styles.cardHeader}>
+              <Ionicons name="musical-notes-outline" size={18} color={c.primary} />
+              <Text style={styles.cardTitleInline}>{tn('wakeStyleTitle')}</Text>
+            </View>
 
             <Text style={styles.label}>{tn('soundLabel')}</Text>
             <View style={styles.chipRow}>
@@ -372,7 +400,7 @@ export function HomeScreen() {
               })}
             </View>
             <TouchableOpacity style={styles.secondaryButton} onPress={onPreview}>
-              <Ionicons name="play" size={16} color={Colors.primary} />
+              <Ionicons name="play" size={16} color={c.primary} />
               <Text style={styles.secondaryText}>{tn('listen')}</Text>
             </TouchableOpacity>
 
@@ -397,8 +425,8 @@ export function HomeScreen() {
               <Switch
                 value={wake.dawnEnabled}
                 onValueChange={v => updateWake({ dawnEnabled: v })}
-                trackColor={{ false: Colors.bgSurface, true: Colors.primary }}
-                thumbColor="#fff"
+                trackColor={{ false: c.bgSurface, true: c.primaryDark }}
+                thumbColor={c.text}
               />
             </View>
             {wake.dawnEnabled && (
@@ -423,11 +451,33 @@ export function HomeScreen() {
               <Switch
                 value={wake.torch}
                 onValueChange={v => updateWake({ torch: v })}
-                trackColor={{ false: Colors.bgSurface, true: Colors.primary }}
-                thumbColor="#fff"
+                trackColor={{ false: c.bgSurface, true: c.primaryDark }}
+                thumbColor={c.text}
               />
             </View>
             <Text style={styles.caption}>{tn('torchCaption')}</Text>
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="sunny-outline" size={18} color={c.primary} />
+              <Text style={styles.cardTitleInline}>{tn('themeTitle')}</Text>
+            </View>
+            <View style={styles.themeRow}>
+              {THEME_IDS.map(id => {
+                const active = id === themeId;
+                return (
+                  <TouchableOpacity key={id} style={styles.themeItem} onPress={() => setThemeId(id)}>
+                    <View style={[styles.swatchRing, active && { borderColor: c.primary }]}>
+                      <LinearGradient colors={asGradient(PALETTES[id].background)} style={styles.swatch}>
+                        <Ionicons name={PALETTES[id].icon} size={18} color={PALETTES[id].primary} />
+                      </LinearGradient>
+                    </View>
+                    <Text style={[styles.themeLabel, active && { color: c.text, fontWeight: '600' }]}>{tn(THEME_LABEL_KEYS[id])}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
           {missingPerms.length > 0 && (
@@ -437,7 +487,7 @@ export function HomeScreen() {
                 <View key={row.key} style={styles.permRow}>
                   <View style={styles.permInfo}>
                     <Text style={styles.permLabel}>{tn(row.labelKey)}</Text>
-                    <Text style={[styles.permTag, { color: row.required ? Colors.warning : Colors.textMuted }]}>
+                    <Text style={[styles.permTag, { color: row.required ? c.warning : c.textMuted }]}>
                       {row.required ? tn('required') : tn('recommended')}
                     </Text>
                   </View>
@@ -451,20 +501,20 @@ export function HomeScreen() {
 
           {nightInProgress ? (
             <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('SleepMode')}>
-              <LinearGradient colors={['#0ea5e9', '#7c3aed']} style={styles.primaryGradient}>
-                <Ionicons name="moon" size={22} color="#fff" />
+              <LinearGradient colors={asGradient(c.button)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryGradient}>
+                <Ionicons name="moon" size={22} color={c.onPrimary} />
                 <Text style={styles.primaryText}>{tn('resume')}</Text>
               </LinearGradient>
             </TouchableOpacity>
           ) : settings.auto ? (
             <TouchableOpacity style={styles.startNowButton} onPress={onStart} disabled={busy}>
-              <Ionicons name="moon-outline" size={20} color={Colors.primaryLight} />
+              <Ionicons name="moon-outline" size={20} color={c.primaryLight} />
               <Text style={styles.startNowText}>{tn('startNow')}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={styles.primaryButton} onPress={onStart} disabled={busy}>
-              <LinearGradient colors={['#0ea5e9', '#7c3aed']} style={styles.primaryGradient}>
-                <Ionicons name="moon" size={22} color="#fff" />
+              <LinearGradient colors={asGradient(c.button)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryGradient}>
+                <Ionicons name="moon" size={22} color={c.onPrimary} />
                 <Text style={styles.primaryText}>{tn('start')}</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -477,12 +527,37 @@ export function HomeScreen() {
                 <Text style={styles.lastDate}>{new Date(latest.startedAtMs).toLocaleDateString(currentLocale, { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
                 <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('NightSummary', { sessionId: latest.sessionId })}>
                   <Text style={styles.secondaryText}>{tn('viewSummary')}</Text>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+                  <Ionicons name="chevron-forward" size={16} color={c.primary} />
                 </TouchableOpacity>
               </>
             ) : (
               <Text style={styles.muted}>{tn('noNightYet')}</Text>
             )}
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="information-circle-outline" size={18} color={c.textMuted} />
+              <Text style={styles.cardTitleInline}>{tn('lastWakeTitle')}</Text>
+            </View>
+            {lastWake ? (
+              <>
+                <Text style={styles.diagLine}>
+                  {new Date(lastWake.atMs).toLocaleString(currentLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                <Text style={styles.diagLine}>
+                  {tn('lastWakeReason')} : {tn(WAKE_REASON_KEYS[lastWake.reason] ?? 'logReasonTest')}
+                </Text>
+                <Text style={styles.diagLine}>
+                  {tn('lastWakeSound')} : {lastWake.played ? tn(SOUND_LABEL_KEYS[lastWake.played] ?? 'soundBirds') : tn('lastWakeNoSound')}
+                </Text>
+                <Text style={styles.diagLine}>{tn('lastWakeFade')} : {tn('secondsValue', { s: lastWake.rampSeconds })}</Text>
+                {lastWake.error !== '' && <Text style={styles.diagError}>{tn('lastWakeError')} : {lastWake.error}</Text>}
+              </>
+            ) : (
+              <Text style={styles.muted}>{tn('lastWakeNone')}</Text>
+            )}
+            <Text style={styles.diagVersion}>{tn('appVersionLabel')} : {appVersion || lastWake?.appVersion || '?'}</Text>
           </View>
 
           <TouchableOpacity style={styles.testLink} onPress={onTestRing}>
@@ -491,10 +566,10 @@ export function HomeScreen() {
 
           <View style={styles.bottomBar}>
             <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Stats')}>
-              <Ionicons name="bar-chart" size={22} color={Colors.textMuted} />
+              <Ionicons name="bar-chart" size={22} color={c.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Settings')}>
-              <Ionicons name="settings-outline" size={22} color={Colors.textMuted} />
+              <Ionicons name="settings-outline" size={22} color={c.textMuted} />
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -504,71 +579,88 @@ export function HomeScreen() {
 }
 
 function Stepper({ value, onMinus, onPlus }: { value: string; onMinus: () => void; onPlus: () => void }) {
+  const { palette: c } = useTheme();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View style={styles.stepper}>
       <TouchableOpacity style={styles.stepButton} onPress={onMinus}>
-        <Ionicons name="remove" size={20} color={Colors.text} />
+        <Ionicons name="remove" size={20} color={c.text} />
       </TouchableOpacity>
       <Text style={styles.stepValue}>{value}</Text>
       <TouchableOpacity style={styles.stepButton} onPress={onPlus}>
-        <Ionicons name="add" size={20} color={Colors.text} />
+        <Ionicons name="add" size={20} color={c.text} />
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => {
+  const T = makeTypography(c);
+  return StyleSheet.create({
   container: { flex: 1 },
   safe: { flex: 1 },
   scrollContent: { padding: Spacing.xl, paddingBottom: 120 },
-  header: { alignItems: 'center', marginBottom: Spacing.xxl },
-  clock: { ...Typography.clock, fontSize: 56, textAlign: 'center' },
+  header: { alignItems: 'center', marginBottom: Spacing.xxxl, marginTop: Spacing.md },
+  greeting: { ...T.label, color: c.primaryLight, marginBottom: Spacing.xs },
+  dateLine: { ...T.body, color: c.textMuted, textTransform: 'capitalize', marginTop: Spacing.xs },
+  clock: { ...T.clock, fontSize: 56, textAlign: 'center' },
 
-  card: { backgroundColor: Colors.bgCard, borderRadius: Radius.xl, padding: Spacing.xl, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.border },
+  card: { backgroundColor: c.bgCard + 'e6', borderRadius: 24, padding: Spacing.xxl, marginBottom: Spacing.xl, borderWidth: 1, borderColor: c.border },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
-  cardTitle: { ...Typography.label, color: Colors.text, marginBottom: Spacing.sm },
-  label: { ...Typography.caption, marginTop: Spacing.md, marginBottom: Spacing.xs },
-  muted: { ...Typography.bodySmall, color: Colors.textMuted },
+  cardHeaderInline: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
+  cardTitleInline: { ...T.label, color: c.text },
+  themeRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: Spacing.sm },
+  themeItem: { alignItems: 'center', gap: Spacing.sm },
+  swatchRing: { padding: 3, borderRadius: 999, borderWidth: 2, borderColor: 'transparent' },
+  swatch: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  themeLabel: { ...T.caption },
+  diagLine: { ...T.bodySmall, marginTop: Spacing.xs },
+  diagError: { ...T.bodySmall, color: c.danger, marginTop: Spacing.xs },
+  diagVersion: { ...T.caption, marginTop: Spacing.md },
+  cardTitle: { ...T.label, color: c.text, marginBottom: Spacing.sm },
+  label: { ...T.caption, marginTop: Spacing.md, marginBottom: Spacing.xs },
+  muted: { ...T.bodySmall, color: c.textMuted },
 
   stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  stepButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.bgSurface, alignItems: 'center', justifyContent: 'center' },
-  stepValue: { fontSize: 44, fontWeight: '300', color: Colors.text, minWidth: 64, textAlign: 'center', fontVariant: ['tabular-nums'] },
-  colon: { fontSize: 40, fontWeight: '300', color: Colors.textMuted },
+  stepButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.bgSurface, alignItems: 'center', justifyContent: 'center' },
+  stepValue: { fontSize: 44, fontWeight: '300', color: c.text, minWidth: 64, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  colon: { fontSize: 40, fontWeight: '300', color: c.textMuted },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  chip: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.borderLight },
-  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText: { ...Typography.bodySmall, color: Colors.textSecondary },
-  chipTextActive: { color: '#fff', fontWeight: '600' },
-  windowLine: { ...Typography.body, color: Colors.primaryLight, marginTop: Spacing.lg, textAlign: 'center', fontWeight: '500' },
+  chip: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.full, borderWidth: 1, borderColor: c.borderLight },
+  chipActive: { backgroundColor: c.primary, borderColor: c.primary },
+  chipText: { ...T.bodySmall, color: c.textSecondary },
+  chipTextActive: { color: c.onPrimary, fontWeight: '600' },
+  windowLine: { ...T.body, color: c.primaryLight, marginTop: Spacing.lg, textAlign: 'center', fontWeight: '500' },
   dayChip: { width: 40, alignItems: 'center', paddingHorizontal: 0 },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md, marginTop: Spacing.md },
-  switchLabel: { ...Typography.bodySmall, color: Colors.text, flex: 1 },
-  hint: { ...Typography.caption, color: Colors.warning, marginTop: Spacing.md },
-  caption: { ...Typography.caption, color: Colors.textMuted, marginTop: Spacing.sm },
-  startNowButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.md, paddingVertical: 16, borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.primary, marginBottom: Spacing.lg },
-  startNowText: { ...Typography.body, color: Colors.primaryLight, fontWeight: '600' },
+  switchLabel: { ...T.bodySmall, color: c.text, flex: 1 },
+  hint: { ...T.caption, color: c.warning, marginTop: Spacing.md },
+  caption: { ...T.caption, color: c.textMuted, marginTop: Spacing.sm },
+  startNowButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.md, paddingVertical: 16, borderRadius: Radius.xl, borderWidth: 1, borderColor: c.primary, marginBottom: Spacing.lg },
+  startNowText: { ...T.body, color: c.primaryLight, fontWeight: '600' },
 
-  permCard: { borderColor: Colors.warning + '60' },
+  permCard: { borderColor: c.warning + '60' },
   permRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
   permInfo: { flex: 1 },
-  permLabel: { ...Typography.bodySmall, color: Colors.text },
+  permLabel: { ...T.bodySmall, color: c.text },
   permTag: { fontSize: 12, marginTop: 2 },
-  fixButton: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.full, backgroundColor: Colors.bgSurface },
-  fixButtonText: { ...Typography.bodySmall, color: Colors.primaryLight, fontWeight: '600' },
+  fixButton: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.full, backgroundColor: c.bgSurface },
+  fixButtonText: { ...T.bodySmall, color: c.primaryLight, fontWeight: '600' },
 
   primaryButton: { borderRadius: Radius.xl, overflow: 'hidden', marginBottom: Spacing.lg },
   primaryGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: Spacing.md },
-  primaryText: { ...Typography.h3, color: '#fff' },
+  primaryText: { ...T.h3, color: c.onPrimary },
 
-  lastDate: { ...Typography.body, color: Colors.text, textTransform: 'capitalize', marginTop: Spacing.xs },
+  lastDate: { ...T.body, color: c.text, textTransform: 'capitalize', marginTop: Spacing.xs },
   secondaryButton: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.md },
-  secondaryText: { ...Typography.bodySmall, color: Colors.primary, fontWeight: '600' },
+  secondaryText: { ...T.bodySmall, color: c.primary, fontWeight: '600' },
 
   testLink: { alignItems: 'center', paddingVertical: Spacing.md },
-  testLinkText: { ...Typography.bodySmall, color: Colors.textMuted, textDecorationLine: 'underline' },
+  testLinkText: { ...T.bodySmall, color: c.textMuted, textDecorationLine: 'underline' },
 
   bottomBar: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32, marginTop: Spacing.lg },
-  bottomButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  bottomButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: c.bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.border },
 });
+};

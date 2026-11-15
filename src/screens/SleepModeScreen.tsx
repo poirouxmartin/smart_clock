@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -7,7 +7,7 @@ import { useI18n } from '@/modules/i18n';
 import { NightRepository } from '@/modules/night/NightRepository';
 import { SmartAlarm } from '../../modules/smart-alarm';
 import type { NightStatus } from '../../modules/smart-alarm';
-import { Colors, Typography, Spacing, Radius } from '@/theme';
+import { Typography, Spacing, Radius, useTheme, type Palette } from '@/theme';
 import type { RootStackParamList } from '@/types';
 
 type SleepNav = NavigationProp<RootStackParamList>;
@@ -25,6 +25,8 @@ export function SleepModeScreen() {
   const navigation = useNavigation<SleepNav>();
   const { t } = useI18n();
   const tn = (key: string, options?: Record<string, any>) => t(key, options, 'night');
+  const { palette: c } = useTheme();
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   const [now, setNow] = useState(() => new Date());
   const [status, setStatus] = useState<NightStatus | null>(null);
@@ -108,7 +110,7 @@ export function SleepModeScreen() {
 
         {tracking && (
           <TouchableOpacity style={styles.stopButton} onPress={onStop}>
-            <Ionicons name="stop-circle-outline" size={20} color={Colors.danger} />
+            <Ionicons name="stop-circle-outline" size={20} color={c.danger} />
             <Text style={styles.stopText}>{tn('stopNight')}</Text>
           </TouchableOpacity>
         )}
@@ -117,16 +119,16 @@ export function SleepModeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: Palette) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
   safe: { flex: 1, justifyContent: 'space-between' },
   content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xxl },
-  clock: { fontSize: 96, fontWeight: '200', color: '#e2e8f0', fontVariant: ['tabular-nums'], letterSpacing: -2 },
-  clockSeconds: { fontSize: 36, color: Colors.textDim },
-  windowLine: { ...Typography.body, color: Colors.primaryLight, marginTop: Spacing.lg, textAlign: 'center' },
-  hint: { ...Typography.bodySmall, color: Colors.textMuted, textAlign: 'center', marginTop: Spacing.xxxl, lineHeight: 22 },
-  status: { ...Typography.caption, color: Colors.textDim, marginTop: Spacing.lg },
+  clock: { fontSize: 96, fontWeight: '200', color: c.textSecondary, fontVariant: ['tabular-nums'], letterSpacing: -2 },
+  clockSeconds: { fontSize: 36, color: c.textDim },
+  windowLine: { ...Typography.body, color: c.primaryLight, marginTop: Spacing.lg, textAlign: 'center' },
+  hint: { ...Typography.bodySmall, color: c.textMuted, textAlign: 'center', marginTop: Spacing.xxxl, lineHeight: 22 },
+  status: { ...Typography.caption, color: c.textDim, marginTop: Spacing.lg },
 
-  stopButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, margin: Spacing.xl, paddingVertical: Spacing.lg, borderRadius: Radius.xl, borderWidth: 1, borderColor: Colors.danger + '60', backgroundColor: '#140707' },
-  stopText: { ...Typography.bodySmall, color: Colors.danger, fontWeight: '600' },
+  stopButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, margin: Spacing.xl, paddingVertical: Spacing.lg, borderRadius: Radius.xl, borderWidth: 1, borderColor: c.danger + '60', backgroundColor: '#140707' },
+  stopText: { ...Typography.bodySmall, color: c.danger, fontWeight: '600' },
 });

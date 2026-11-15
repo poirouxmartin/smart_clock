@@ -46,6 +46,24 @@ export const Typography = {
   label: { fontSize: 14, color: Colors.textMuted, textTransform: 'uppercase' as const, letterSpacing: 1 },
 };
 
+import type { Palette } from './themes';
+
+export function makeTypography(p: Palette) {
+  return {
+    clock: { ...Typography.clock, color: p.text },
+    h1: { ...Typography.h1, color: p.text },
+    h2: { ...Typography.h2, color: p.text },
+    h3: { ...Typography.h3, color: p.text },
+    body: { ...Typography.body, color: p.textSecondary },
+    bodySmall: { ...Typography.bodySmall, color: p.textSecondary },
+    caption: { ...Typography.caption, color: p.textMuted },
+    label: { ...Typography.label, color: p.textMuted },
+  };
+}
+
+export * from './themes';
+export * from './ThemeContext';
+
 export const Spacing = {
   xs: 4,
   sm: 8,
