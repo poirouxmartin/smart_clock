@@ -9,9 +9,6 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.MediaPlayer
-import android.media.Ringtone
-import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -29,14 +26,15 @@ class RingService : Service() {
 
     companion object {
         private const val TAG = "SmartAlarm"
-        private const val CHANNEL_ID = "smart_alarm_ring"
+        private const val CHANNEL_ID = "aube_ring_silent"
+        // Older versions created this channel with a sound; channels are immutable, so drop it.
+        private const val OLD_CHANNEL_ID = "smart_alarm_ring"
         private const val NOTIF_ID = 4242
         private const val STOP_REQUEST_CODE = 2001
         private const val ACTIVITY_REQUEST_CODE = 2002
         private const val WAKE_LOCK_MS = 30 * 60_000L
         private const val AUTO_STOP_MS = 20 * 60_000L
         private const val RAMP_TICK_MS = 1_000L
-        private const val START_VOLUME = 0.15f
         private const val NATURE_START_VOLUME = 0.02f
         private val VIBRATE_PATTERN = longArrayOf(0, 800, 800)
     }
@@ -46,10 +44,8 @@ class RingService : Service() {
     private var reason = "fallback"
     private var ringStartedMs = 0L
     private var rampMs = 60_000L
-    private var startVolume = START_VOLUME
-    private var natureSound = false
+    private val startVolume = NATURE_START_VOLUME
     private var player: MediaPlayer? = null
-    private var ringtone: Ringtone? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -102,9 +98,8 @@ class RingService : Service() {
         }
 
         acquireWakeLock()
-        startSound()
-        // Nature sounds fade in silently; vibration starts once the ramp is complete.
-        if (natureSound) handler.postDelayed(vibrateLater, rampMs) else startVibration()
+        // The sound fades in silently; vibration starts once the ramp is complete.
+        if (startSound()) handler.postDelayed(vibrateLater, rampMs) else startVibration()
         handler.post(rampStep)
         handler.postDelayed(autoStop, AUTO_STOP_MS)
         try {
@@ -122,6 +117,7 @@ class RingService : Service() {
 
     private fun showForeground(reason: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getSystemService(NotificationManager::class.java).deleteNotificationChannel(OLD_CHANNEL_ID)
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.channel_alarm),
@@ -176,54 +172,46 @@ class RingService : Service() {
         }
     }
 
-    private fun startSound() {
-        val rawName = NatureSound.rawName(WakeOptions.sound(this))
-        val rawId = if (rawName != null) resources.getIdentifier(rawName, "raw", packageName) else 0
-        natureSound = rawId != 0
-        startVolume = if (natureSound) NATURE_START_VOLUME else START_VOLUME
-
-        val uri: Uri = if (natureSound) {
-            Uri.parse("android.resource://$packageName/$rawId")
-        } else {
-            RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                ?: return
-        }
-
+    /** Always a bundled nature sound, never the system ringtone. Returns whether something plays. */
+    private fun startSound(): Boolean {
+        val requested = WakeOptions.sound(this)
         val attrs = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
+        val errors = StringBuilder()
 
-        try {
+        for (id in NatureSound.fallbackChain(requested)) {
             val mp = MediaPlayer()
             try {
                 mp.setAudioAttributes(attrs)
-                mp.setDataSource(this, uri)
+                mp.setDataSource(this, SoundSource.uri(this, id))
                 mp.isLooping = true
                 mp.setVolume(startVolume, startVolume)
                 mp.prepare()
                 mp.start()
                 player = mp
-                return
+                recordWake(requested, id, "mediaplayer", errors.toString().ifEmpty { null })
+                return true
             } catch (e: Exception) {
-                Log.w(TAG, "MediaPlayer failed, falling back to Ringtone", e)
+                Log.w(TAG, "MediaPlayer failed for $id", e)
+                errors.append(id).append(": ").append(e.toString()).append("; ")
                 mp.release()
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "MediaPlayer creation failed, falling back to Ringtone", e)
         }
 
+        // No Ringtone last resort: on failure Android swaps in its own fallback ring, the very
+        // sound Aube must never play. Vibration and the rising light still wake the sleeper.
+        Log.e(TAG, "No nature sound could be played: $errors")
+        recordWake(requested, null, "none", errors.toString().ifEmpty { null })
+        return false
+    }
+
+    private fun recordWake(requested: String, played: String?, playerName: String, error: String?) {
         try {
-            ringtone = RingtoneManager.getRingtone(this, uri)?.apply {
-                audioAttributes = attrs
-                if (Build.VERSION.SDK_INT >= 28) isLooping = true
-                play()
-            }
+            WakeLog.record(this, ringStartedMs, reason, requested, played, playerName, error, WakeOptions.rampSeconds(this))
         } catch (e: Exception) {
-            Log.e(TAG, "Ringtone playback failed", e)
+            Log.w(TAG, "Cannot record wake log", e)
         }
     }
 
@@ -261,8 +249,6 @@ class RingService : Service() {
             it.release()
         }
         player = null
-        ringtone?.stop()
-        ringtone = null
         vibrator?.cancel()
         vibrator = null
         ringing = false

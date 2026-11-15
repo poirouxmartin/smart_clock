@@ -10,6 +10,7 @@ export type NightStatus = {
   firedReason: string | null;
   epochCount: number;
   lastActivity: number;
+  lastSamples: number;
   summarySeen: boolean;
 };
 
@@ -39,7 +40,18 @@ export type AutoStatus = {
   apiConfidence: number;
 };
 
-export type WakeSound = 'system' | 'birds' | 'waves' | 'forest' | 'rain' | 'stream';
+export type WakeSound = 'birds' | 'waves' | 'forest' | 'rain' | 'stream' | 'storm';
+
+export interface WakeLogEntry {
+  atMs: number;
+  reason: string;
+  requested: string;
+  played: string;
+  player: 'mediaplayer' | 'ringtone' | 'none' | string;
+  error: string;
+  rampSeconds: number;
+  appVersion: string;
+}
 
 export type WakeOptions = {
   sound: WakeSound;
@@ -68,6 +80,8 @@ type SmartAlarmNative = {
   setWakeOptions(partial: Partial<WakeOptions>): Promise<WakeOptions>;
   previewSound(id: string): Promise<void>;
   stopPreview(): Promise<void>;
+  getWakeLog(): Promise<string>;
+  getAppVersion(): Promise<string>;
 };
 
 const DISABLED_AUTO_STATUS: AutoStatus = {
@@ -105,6 +119,7 @@ const fallback: SmartAlarmNative = {
     firedReason: null,
     epochCount: 0,
     lastActivity: 0,
+    lastSamples: 0,
     summarySeen: false,
   }),
   getPermissions: async () => ({
@@ -127,6 +142,8 @@ const fallback: SmartAlarmNative = {
   setWakeOptions: async () => ({ ...DEFAULT_WAKE_OPTIONS }),
   previewSound: async () => {},
   stopPreview: async () => {},
+  getWakeLog: async () => '[]',
+  getAppVersion: async () => '?',
 };
 
 function loadNative(): SmartAlarmNative {
@@ -158,6 +175,15 @@ export const getWakeOptions = () => native.getWakeOptions();
 export const setWakeOptions = (partial: Partial<WakeOptions>) => native.setWakeOptions(partial);
 export const previewSound = (id: string) => native.previewSound(id);
 export const stopPreview = () => native.stopPreview();
+export const getWakeLog = async (): Promise<WakeLogEntry[]> => {
+  try {
+    const parsed = JSON.parse(await native.getWakeLog());
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+export const getAppVersion = () => native.getAppVersion();
 
 export const isNativeAvailable = native !== fallback;
 
@@ -180,4 +206,6 @@ export const SmartAlarm = {
   setWakeOptions,
   previewSound,
   stopPreview,
+  getWakeLog,
+  getAppVersion,
 };

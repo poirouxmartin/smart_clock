@@ -10,7 +10,6 @@ object WakeOptions {
     private const val K_DAWN_MIN = "dawnMinutes"
     private const val K_TORCH = "torch"
 
-    private const val DEFAULT_SOUND = "birds"
     private const val DEFAULT_RAMP = 60
     private const val MIN_RAMP = 15
     private const val MAX_RAMP = 300
@@ -20,7 +19,8 @@ object WakeOptions {
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun sound(ctx: Context): String = prefs(ctx).getString(K_SOUND, DEFAULT_SOUND) ?: DEFAULT_SOUND
+    /** Always a bundled nature sound: a stored legacy "system" value reads as the default. */
+    fun sound(ctx: Context): String = NatureSound.normalize(prefs(ctx).getString(K_SOUND, null))
 
     fun rampSeconds(ctx: Context): Int =
         prefs(ctx).getInt(K_RAMP, DEFAULT_RAMP).coerceIn(MIN_RAMP, MAX_RAMP)

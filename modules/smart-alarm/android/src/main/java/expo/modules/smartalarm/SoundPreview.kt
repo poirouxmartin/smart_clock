@@ -3,7 +3,6 @@ package expo.modules.smartalarm
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -21,7 +20,7 @@ object SoundPreview {
     /** Plays one preview at a time, on the media stream (not the alarm stream), for 8 s. */
     fun play(ctx: Context, id: String) {
         stop()
-        val uri = uriFor(ctx, id) ?: return
+        val uri = uriFor(ctx, id)
         val mp = MediaPlayer()
         try {
             mp.setAudioAttributes(
@@ -56,13 +55,5 @@ object SoundPreview {
         player = null
     }
 
-    private fun uriFor(ctx: Context, id: String): Uri? {
-        val raw = NatureSound.rawName(id)
-        if (raw != null) {
-            val resId = ctx.resources.getIdentifier(raw, "raw", ctx.packageName)
-            if (resId != 0) return Uri.parse("android.resource://${ctx.packageName}/$resId")
-        }
-        return RingtoneManager.getActualDefaultRingtoneUri(ctx, RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-    }
+    private fun uriFor(ctx: Context, id: String): Uri = SoundSource.uri(ctx, id)
 }

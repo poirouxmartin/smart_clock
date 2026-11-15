@@ -38,6 +38,8 @@ class SmartAlarmModule : Module() {
         AsyncFunction("setWakeOptions") { options: Map<String, Any?> -> setWakeOptions(options) }
         AsyncFunction("previewSound") { id: String -> SoundPreview.play(context, id) }
         AsyncFunction("stopPreview") { SoundPreview.stop() }
+        AsyncFunction("getWakeLog") { WakeLog.read(context) }
+        AsyncFunction("getAppVersion") { WakeLog.appVersion(context) }
         AsyncFunction("configureAuto") { cfg: Map<String, Any?> -> configureAuto(cfg) }
         AsyncFunction("getAutoStatus") { AutoStore.toMap(context) }
     }
@@ -80,6 +82,7 @@ class SmartAlarmModule : Module() {
             "firedReason" to AlarmStore.firedReason(ctx),
             "epochCount" to SleepTrackingService.epochCount,
             "lastActivity" to SleepTrackingService.lastActivity,
+            "lastSamples" to SleepTrackingService.lastSamples,
             "summarySeen" to AlarmStore.summarySeen(ctx),
         )
     }
