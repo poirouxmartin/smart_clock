@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { useI18n } from '@/modules/i18n';
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { getDatabaseService } from '@/modules/user-profile/DatabaseService';
 import { NightRepository } from '@/modules/night/NightRepository';
 import type { NightSummary } from '@/modules/night/nightAnalysis';
@@ -308,6 +309,8 @@ export function HomeScreen() {
               {new Date().toLocaleDateString(currentLocale, { weekday: 'long', day: 'numeric', month: 'long' })}
             </Text>
           </View>
+
+          <UpdateBanner />
 
           <View style={styles.card}>
             <View style={styles.switchRow}>

@@ -6,8 +6,8 @@ import { fr } from './locales/fr';
 import { en } from './locales/en';
 
 const resources: TranslationResources = {
-  fr: { common: fr.common, home: fr.home, alarm: fr.alarm, sleep: fr.sleep, settings: fr.settings, notifications: fr.notifications, sounds: fr.sounds, lights: fr.lights, profile: fr.profile, onboarding: fr.onboarding, errors: fr.errors, night: fr.night },
-  en: { common: en.common, home: en.home, alarm: en.alarm, sleep: en.sleep, settings: en.settings, notifications: en.notifications, sounds: en.sounds, lights: en.lights, profile: en.profile, onboarding: en.onboarding, errors: en.errors, night: en.night },
+  fr: { common: fr.common, home: fr.home, alarm: fr.alarm, sleep: fr.sleep, settings: fr.settings, notifications: fr.notifications, sounds: fr.sounds, lights: fr.lights, profile: fr.profile, onboarding: fr.onboarding, errors: fr.errors, night: fr.night, update: fr.update },
+  en: { common: en.common, home: en.home, alarm: en.alarm, sleep: en.sleep, settings: en.settings, notifications: en.notifications, sounds: en.sounds, lights: en.lights, profile: en.profile, onboarding: en.onboarding, errors: en.errors, night: en.night, update: en.update },
 };
 
 class I18nService {
@@ -29,7 +29,7 @@ class I18nService {
         lng: initialLocale,
         fallbackLng: FALLBACK_LOCALE,
         defaultNS: 'common',
-        ns: ['common', 'home', 'alarm', 'sleep', 'settings', 'notifications', 'sounds', 'lights', 'profile', 'onboarding', 'errors', 'night'],
+        ns: ['common', 'home', 'alarm', 'sleep', 'settings', 'notifications', 'sounds', 'lights', 'profile', 'onboarding', 'errors', 'night', 'update'],
         interpolation: {
           escapeValue: false,
         },

@@ -512,4 +512,15 @@ export const en = {
     torchLabel: 'Progressive flash (last minutes)',
     torchCaption: 'Phone placed screen facing you; the flash is on the back.',
   },
+  update: {
+    title: 'New version {{version}} available',
+    install: 'Install',
+    downloading: 'Downloading…',
+    later: 'Later',
+    started: 'Confirm the installation in the Android dialog.',
+    needPermission: 'Allow installs from Aube, then tap Install again.',
+    downloadFailed: 'Download failed. Check your connection and try again.',
+    invalid: 'Invalid update file.',
+    notNewer: 'This version is already installed.',
+  },
 };

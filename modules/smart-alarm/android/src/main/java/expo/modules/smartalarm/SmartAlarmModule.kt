@@ -40,6 +40,19 @@ class SmartAlarmModule : Module() {
         AsyncFunction("stopPreview") { SoundPreview.stop() }
         AsyncFunction("getWakeLog") { WakeLog.read(context) }
         AsyncFunction("getAppVersion") { WakeLog.appVersion(context) }
+        AsyncFunction("getVersionInfo") { AppUpdater.versionInfo(context) }
+        AsyncFunction("downloadAndInstallUpdate") { url: String, expectedVersion: String, promise: expo.modules.kotlin.Promise ->
+            val ctx = context
+            Thread {
+                val r = try {
+                    AppUpdater.downloadAndInstall(ctx, url, expectedVersion)
+                } catch (e: Exception) {
+                    android.util.Log.w("AubeUpdate", "install failed", e)
+                    AppUpdater.DOWNLOAD_FAILED
+                }
+                promise.resolve(r)
+            }.start()
+        }
         AsyncFunction("configureAuto") { cfg: Map<String, Any?> -> configureAuto(cfg) }
         AsyncFunction("getAutoStatus") { AutoStore.toMap(context) }
     }

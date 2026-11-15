@@ -13,8 +13,20 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application>
+        <provider
+            android:name="expo.modules.smartalarm.UpdateFileProvider"
+            android:authorities="${applicationId}.aubeupdates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/aube_update_paths" />
+        </provider>
+
         <service
             android:name="expo.modules.smartalarm.SleepTrackingService"
             android:exported="false"

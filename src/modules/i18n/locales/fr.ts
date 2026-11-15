@@ -513,4 +513,15 @@ export const fr = {
     torchLabel: 'Flash progressif (dernières minutes)',
     torchCaption: 'Le téléphone posé écran vers vous; le flash est au dos.',
   },
+  update: {
+    title: 'Nouvelle version {{version}} disponible',
+    install: 'Installer',
+    downloading: 'Téléchargement…',
+    later: 'Plus tard',
+    started: 'Confirme l’installation dans la fenêtre Android.',
+    needPermission: 'Autorise l’installation depuis Aube, puis touche à nouveau Installer.',
+    downloadFailed: 'Téléchargement impossible. Vérifie ta connexion et réessaie.',
+    invalid: 'Fichier de mise à jour invalide.',
+    notNewer: 'Cette version est déjà installée.',
+  },
 };
