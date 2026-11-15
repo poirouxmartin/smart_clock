@@ -229,6 +229,28 @@ def make_stream(rng, n):
     return buf
 
 
+# ---------------------------------------------------------------- storm
+
+def thunder_roll(rng, dur):
+    """Distant rumble: low-passed brown noise, slow attack, long irregular decay."""
+    n = int(dur * SR)
+    rumble = normalize_std(lowpass(brown_noise(rng, n), 180))
+    t = np.arange(n) / SR
+    attack = np.clip(t / rng.uniform(0.4, 0.9), 0, 1)
+    decay = np.exp(-t / (dur * rng.uniform(0.25, 0.4)))
+    flutter = 0.7 + 0.3 * np.sin(2 * np.pi * rng.uniform(0.5, 1.5) * t + rng.uniform(0, 2 * np.pi))
+    return rumble * attack * decay * flutter
+
+
+def make_storm(rng, n):
+    """Steady rain with two or three far-away thunder rolls per minute."""
+    buf = 0.8 * make_rain(rng, n)
+    dur = n / SR
+    for onset in poisson_times(rng, 2.5 / 60, dur):
+        add_at(buf, int(onset * SR), rng.uniform(0.5, 0.9) * thunder_roll(rng, rng.uniform(5, 9)))
+    return buf
+
+
 # ---------------------------------------------------------------- render
 
 # name -> (fixed seed, synthesis function taking (rng, n_samples))
@@ -238,6 +260,7 @@ SOUNDS = {
     "forest": (3, make_forest),
     "rain": (4, make_rain),
     "stream": (5, make_stream),
+    "storm": (6, make_storm),
 }
 
 
@@ -282,13 +305,15 @@ def main():
     parser.add_argument("out_dir", help="directory for nature_<name>.ogg files")
     parser.add_argument("--seconds", type=float, default=60,
                         help="loop length in seconds (default 60)")
+    parser.add_argument("--only", nargs="+", choices=sorted(SOUNDS),
+                        help="render only these sounds (default: all)")
     args = parser.parse_args()
     if args.seconds <= CROSSFADE_S:
         parser.error(f"--seconds must be greater than {CROSSFADE_S:g}")
 
     ffmpeg = find_ffmpeg()
     os.makedirs(args.out_dir, exist_ok=True)
-    for name in SOUNDS:
+    for name in args.only or SOUNDS:
         samples = render(name, args.seconds)
         path = os.path.join(args.out_dir, f"nature_{name}.ogg")
         encode_ogg(samples, path, ffmpeg)
