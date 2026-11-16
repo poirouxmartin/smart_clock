@@ -9,6 +9,21 @@ avant le réveil et sons de nature.
 
 Anciennement « Smart Clock ». L'identifiant Android `com.poirouxmartin.smartclock` est conservé : les nouvelles versions s'installent par-dessus les anciennes sans perdre les nuits enregistrées.
 
+## Installation
+
+Télécharger le fichier `aube-vX.Y.Z.apk` de la dernière version sur la page des
+[releases](https://github.com/poirouxmartin/smart_clock/releases/latest), puis l'ouvrir
+sur le téléphone (Android 7 ou plus ; autoriser l'installation d'applis inconnues si
+Android le demande). Les nouvelles versions s'installent par-dessus les anciennes, et
+l'appli propose elle-même les mises à jour depuis la 1.4.1.
+
+## Avertissement
+
+Projet personnel, fourni tel quel, sans garantie d'aucune sorte. Ce n'est pas un
+dispositif médical : les phases de sommeil affichées sont des estimations à partir des
+mouvements du téléphone. Ne pas s'en servir comme seul réveil pour un rendez-vous
+important tant qu'il n'a pas été vérifié sur son propre téléphone.
+
 ## Utilisation
 
 1. Accueil : régler l'heure cible, les jours et la fenêtre (10/20/30/45 min, 30 par défaut).
@@ -82,9 +97,9 @@ aucun endormissement n'a été détecté.
 
 ### Sons de nature
 
-- Oiseaux, vagues, forêt, pluie, ruisseau : boucles sans couture de 60 s, synthétisées par
-  `scripts/generate_nature_sounds.py` (CC0, voir [docs/sounds-license.md](docs/sounds-license.md)),
-  ou sonnerie système.
+- Oiseaux, vagues, forêt, pluie, ruisseau, orage : boucles sans couture de 60 s,
+  synthétisées par `scripts/generate_nature_sounds.py` (CC0, voir
+  [docs/sounds-license.md](docs/sounds-license.md)). Aucune sonnerie système.
 - Montée de volume perceptuelle (exponentielle) depuis 2 % sur 60 s par défaut (30, 60 ou
   120 s).
 - Pour les sons de nature, la vibration ne démarre qu'après la montée.
@@ -109,9 +124,9 @@ Justification : [docs/science-reveil.md](docs/science-reveil.md).
 
 ```bash
 npm install
-npm test                      # jest : 105 tests, 7 suites
+npm test                      # jest : 139 tests, 11 suites
 npx tsc --noEmit              # le flux principal est typé ; du code legacy reste en erreur
-cd android && ./gradlew :smart-alarm:testDebugUnitTest assembleRelease   # 47 tests Kotlin
+cd android && ./gradlew :smart-alarm:testDebugUnitTest assembleRelease   # 64 tests Kotlin
 ```
 
 Tests Kotlin : `WakeDecider`, `SleepOnsetDetector`, `AutoSchedule`, `UsualBedtime`,
@@ -123,3 +138,8 @@ Icônes : `python scripts/generate_icons.py` régénère `assets/` et les mipmap
 `expo prebuild --clean`, qui l'écraserait. Release : pousser un tag `v*` et la CI
 (`.github/workflows/release-apk.yml`) publie l'APK signé avec la clé release. En local,
 sans `keystore.properties`, l'APK est signé avec la clé de debug.
+
+## Licence
+
+MIT, voir [LICENSE](LICENSE). Sons de nature : CC0, voir
+[docs/sounds-license.md](docs/sounds-license.md).
