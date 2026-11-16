@@ -36,11 +36,24 @@ class RingService : Service() {
         private const val AUTO_STOP_MS = 20 * 60_000L
         private const val RAMP_TICK_MS = 1_000L
         private const val NATURE_START_VOLUME = 0.02f
+        private const val SNOOZE_NOTIF_ID = 4243
+        private const val SNOOZE_REQUEST_CODE = 2003
         private val VIBRATE_PATTERN = longArrayOf(0, 800, 800)
+
+        /** Read by the JS side to show a ring overlay when the full-screen UI did not appear. */
+        @Volatile var isRinging = false
+            private set
+        @Volatile var currentReason = ""
+            private set
     }
 
     private val handler = Handler(Looper.getMainLooper())
     private var ringing = false
+        set(value) {
+            field = value
+            isRinging = value
+            currentReason = if (value) reason else ""
+        }
     private var reason = "fallback"
     private var ringStartedMs = 0L
     private var rampMs = 60_000L
@@ -74,6 +87,10 @@ class RingService : Service() {
             stopAndFinish()
             return START_NOT_STICKY
         }
+        if (intent?.action == AlarmScheduler.ACTION_SNOOZE) {
+            if (ringing) snooze() else stopSelf()
+            return START_NOT_STICKY
+        }
 
         val fireReason = intent?.getStringExtra(AlarmScheduler.EXTRA_REASON) ?: "fallback"
         // Must run for every startForegroundService call, even when already ringing.
@@ -84,6 +101,8 @@ class RingService : Service() {
         ringing = true
         ringStartedMs = System.currentTimeMillis()
         rampMs = WakeOptions.rampSeconds(this) * 1000L
+        AlarmStore.clearSnooze(this)
+        getSystemService(NotificationManager::class.java).cancel(SNOOZE_NOTIF_ID)
 
         // A test ring must not touch a real night (state, fallback alarm, tracking).
         if (reason != "test") {
@@ -115,7 +134,15 @@ class RingService : Service() {
             .putExtra(AlarmScheduler.EXTRA_REASON, reason)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION)
 
-    private fun showForeground(reason: String) {
+    private fun stopPendingIntent(): PendingIntent =
+        PendingIntent.getService(
+            this,
+            STOP_REQUEST_CODE,
+            Intent(this, RingService::class.java).setAction(AlarmScheduler.ACTION_STOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+    private fun createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getSystemService(NotificationManager::class.java).deleteNotificationChannel(OLD_CHANNEL_ID)
             val channel = NotificationChannel(
@@ -130,38 +157,72 @@ class RingService : Service() {
             }
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
+    }
+
+    private fun showForeground(reason: String) {
+        createChannel()
 
         val textRes = when (reason) {
             "smart" -> R.string.ring_smart
             "test" -> R.string.ring_test
+            "snooze" -> R.string.ring_snooze
             else -> R.string.ring_fallback
         }
+        val text = getString(textRes)
         val activityPi = PendingIntent.getActivity(
             this,
             ACTIVITY_REQUEST_CODE,
             activityIntent(reason),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val stopPi = PendingIntent.getService(
+        val snoozePi = PendingIntent.getService(
             this,
-            STOP_REQUEST_CODE,
-            Intent(this, RingService::class.java).setAction(AlarmScheduler.ACTION_STOP),
+            SNOOZE_REQUEST_CODE,
+            Intent(this, RingService::class.java).setAction(AlarmScheduler.ACTION_SNOOZE),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(getString(R.string.ring_title))
-            .setContentText(getString(textRes))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setColor(0xFFE8A33D.toInt())
+            .setColorized(true)
             .setOngoing(true)
             .setFullScreenIntent(activityPi, true)
             .setContentIntent(activityPi)
-            .addAction(0, getString(R.string.stop), stopPi)
+            .addAction(0, getString(R.string.stop), stopPendingIntent())
+            .addAction(0, getString(R.string.snooze), snoozePi)
             .build()
 
         val fgsType = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
         ServiceCompat.startForeground(this, NOTIF_ID, notification, fgsType)
+    }
+
+    /** Silences the ring and rings again in a few minutes; the night state is left untouched. */
+    private fun snooze() {
+        val at = Snooze.triggerAt(System.currentTimeMillis())
+        AlarmScheduler.scheduleSnooze(this, at, Snooze.nextReason(reason))
+        AlarmStore.setSnoozeUntilMs(this, at)
+        stopRinging()
+        AlarmActivity.finishCurrent()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+
+        createChannel()
+        val time = android.text.format.DateFormat.getTimeFormat(this).format(java.util.Date(at))
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle(getString(R.string.snooze_notif_title))
+            .setContentText(getString(R.string.snooze_notif_text, time))
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setOngoing(true)
+            .addAction(0, getString(R.string.stop), stopPendingIntent())
+            .build()
+        getSystemService(NotificationManager::class.java).notify(SNOOZE_NOTIF_ID, notification)
+        stopSelf()
     }
 
     private fun acquireWakeLock() {
@@ -256,7 +317,11 @@ class RingService : Service() {
 
     private fun stopAndFinish() {
         stopRinging()
-        if (reason != "test") {
+        AlarmScheduler.cancelSnooze(this)
+        AlarmStore.clearSnooze(this)
+        getSystemService(NotificationManager::class.java).cancel(SNOOZE_NOTIF_ID)
+        // After a snooze the service is fresh (reason "fallback"): only a real ring left RINGING.
+        if (reason != "test" && AlarmStore.state(this) == AlarmStore.RINGING) {
             AlarmStore.edit(this) { putString("state", AlarmStore.DONE) }
             DawnActivity.finishIfRunning()
             DawnScheduler.cancel(this)

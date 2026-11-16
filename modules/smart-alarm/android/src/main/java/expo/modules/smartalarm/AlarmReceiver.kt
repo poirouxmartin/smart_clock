@@ -32,7 +32,7 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     private fun onFire(ctx: Context, reason: String) {
-        if (reason != "test") {
+        if (reason != "test" && reason != "snooze") {
             val state = AlarmStore.state(ctx)
             // Auto mode arms the daily alarm without a session: it must ring even if no sleep was detected.
             val autoDue = AutoStore.enabled(ctx) &&

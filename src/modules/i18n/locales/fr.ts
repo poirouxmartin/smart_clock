@@ -524,4 +524,15 @@ export const fr = {
     invalid: 'Fichier de mise à jour invalide.',
     notNewer: 'Cette version est déjà installée.',
   },
+  ring: {
+    title: 'L’alarme sonne',
+    stop: 'Arrêter',
+    snooze: 'Répéter dans 9 min',
+    snoozedUntil: 'Alarme reportée à {{time}}',
+    stopAlarm: 'Arrêter l’alarme',
+    fullScreenTitle: 'Alarme plein écran',
+    fullScreenMessage: 'Sans cette autorisation, Android n’affiche qu’une petite notification quand l’alarme sonne, et l’arrêter devient difficile. Autorise l’alarme plein écran pour Aube.',
+    allow: 'Autoriser',
+    later: 'Plus tard',
+  },
 };

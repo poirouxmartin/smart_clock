@@ -3,6 +3,8 @@ package expo.modules.smartalarm
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -98,14 +100,40 @@ class AlarmActivity : Activity() {
                 when (reason) {
                     "smart" -> R.string.ring_smart
                     "test" -> R.string.ring_test
+                    "snooze" -> R.string.ring_snooze
                     else -> R.string.ring_fallback
                 }
             )
         }
         val stopButton = Button(this).apply {
             setText(R.string.stop)
-            textSize = 24f
+            textSize = 34f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(0xFF3A2410.toInt())
+            setAllCaps(false)
+            stateListAnimator = null
+            background = GradientDrawable().apply {
+                cornerRadius = dp(28).toFloat()
+                setColor(0xFFFFE3B0.toInt())
+                setStroke(dp(2), 0x66FFFFFF)
+            }
             setOnClickListener { onStopClicked() }
+        }
+        val snoozeButton = Button(this).apply {
+            setText(R.string.snooze)
+            textSize = 22f
+            setTextColor(Color.WHITE)
+            setAllCaps(false)
+            stateListAnimator = null
+            background = GradientDrawable().apply {
+                cornerRadius = dp(28).toFloat()
+                setColor(Color.TRANSPARENT)
+                setStroke(dp(2), Color.WHITE)
+            }
+            setOnClickListener {
+                startService(Intent(this@AlarmActivity, RingService::class.java).setAction(AlarmScheduler.ACTION_SNOOZE))
+                finish()
+            }
         }
 
         val root = LinearLayout(this).apply {
@@ -122,8 +150,13 @@ class AlarmActivity : Activity() {
             )
             addView(
                 stopButton,
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96))
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(120))
                     .apply { setMargins(dp(24), dp(48), dp(24), 0) },
+            )
+            addView(
+                snoozeButton,
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(72))
+                    .apply { setMargins(dp(24), dp(16), dp(24), 0) },
             )
         }
         setContentView(root)

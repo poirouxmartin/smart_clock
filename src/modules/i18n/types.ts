@@ -41,7 +41,8 @@ export type TranslationNamespace =
   | 'onboarding' 
   | 'errors'
   | 'night'
-  | 'update';
+  | 'update'
+  | 'ring';
 
 export interface TranslationResources {
   [locale: string]: {

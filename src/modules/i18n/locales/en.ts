@@ -523,4 +523,15 @@ export const en = {
     invalid: 'Invalid update file.',
     notNewer: 'This version is already installed.',
   },
+  ring: {
+    title: 'Alarm ringing',
+    stop: 'Stop',
+    snooze: 'Snooze 9 min',
+    snoozedUntil: 'Alarm snoozed until {{time}}',
+    stopAlarm: 'Stop alarm',
+    fullScreenTitle: 'Full-screen alarm',
+    fullScreenMessage: 'Without this permission, Android only shows a small notification when the alarm rings, and stopping it becomes hard. Allow the full-screen alarm for Aube.',
+    allow: 'Allow',
+    later: 'Later',
+  },
 };

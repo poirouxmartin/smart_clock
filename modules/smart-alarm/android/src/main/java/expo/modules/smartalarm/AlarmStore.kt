@@ -40,5 +40,15 @@ object AlarmStore {
     fun firedReason(ctx: Context): String? =
         prefs(ctx).getString("firedReason", null)?.takeIf { it.isNotEmpty() }
 
+    fun snoozeUntilMs(ctx: Context): Long = prefs(ctx).getLong("snoozeUntilMs", 0L)
+
+    fun setSnoozeUntilMs(ctx: Context, atMs: Long) {
+        edit(ctx) { putLong("snoozeUntilMs", atMs) }
+    }
+
+    fun clearSnooze(ctx: Context) {
+        edit(ctx) { remove("snoozeUntilMs") }
+    }
+
     fun summarySeen(ctx: Context): Boolean = prefs(ctx).getBoolean("summarySeen", false)
 }

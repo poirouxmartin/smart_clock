@@ -11,11 +11,13 @@ object AlarmScheduler {
     private const val TAG = "SmartAlarm"
     const val ACTION_FIRE = "expo.modules.smartalarm.FIRE"
     const val ACTION_STOP = "expo.modules.smartalarm.STOP"
+    const val ACTION_SNOOZE = "expo.modules.smartalarm.SNOOZE"
     const val EXTRA_REASON = "reason"
 
     private const val FALLBACK_REQUEST_CODE = 1001
     private const val TEST_REQUEST_CODE = 1002
     private const val SHOW_REQUEST_CODE = 1003
+    private const val SNOOZE_REQUEST_CODE = 1004
 
     private const val FIRE_FLAGS = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
@@ -25,6 +27,23 @@ object AlarmScheduler {
 
     fun scheduleTest(ctx: Context, atMs: Long): Boolean =
         schedule(ctx, atMs, TEST_REQUEST_CODE, "test")
+
+    fun scheduleSnooze(ctx: Context, atMs: Long, reason: String): Boolean =
+        schedule(ctx, atMs, SNOOZE_REQUEST_CODE, reason)
+
+    fun cancelSnooze(ctx: Context) {
+        val am = ctx.getSystemService(AlarmManager::class.java)
+        val pi = PendingIntent.getBroadcast(
+            ctx,
+            SNOOZE_REQUEST_CODE,
+            fireIntent(ctx, "snooze"),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        )
+        if (pi != null) {
+            am.cancel(pi)
+            pi.cancel()
+        }
+    }
 
     fun cancel(ctx: Context) {
         val am = ctx.getSystemService(AlarmManager::class.java)

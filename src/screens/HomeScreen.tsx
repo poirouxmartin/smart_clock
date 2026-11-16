@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { useI18n } from '@/modules/i18n';
 import { UpdateBanner } from '@/components/UpdateBanner';
+import { shouldPromptFullScreen } from '@/modules/alarm/ringUi';
 import { getDatabaseService } from '@/modules/user-profile/DatabaseService';
 import { NightRepository } from '@/modules/night/NightRepository';
 import type { NightSummary } from '@/modules/night/nightAnalysis';
@@ -17,6 +18,9 @@ import { makeTypography, Spacing, Radius, useTheme, THEME_IDS, PALETTES, asGradi
 import type { RootStackParamList } from '@/types';
 
 type HomeNav = NavigationProp<RootStackParamList>;
+
+// Ask for the full-screen alarm permission at most once per app session.
+let fullScreenPrompted = false;
 
 const SETTINGS_KEY = 'night_settings';
 const WINDOW_CHOICES = [10, 20, 30, 45];
@@ -189,11 +193,14 @@ export function HomeScreen() {
     }
   };
 
-  const refreshPermissions = useCallback(async () => {
+  const refreshPermissions = useCallback(async (): Promise<PermissionStatus | null> => {
     try {
-      setPermissions(await SmartAlarm.getPermissions());
+      const perms = await SmartAlarm.getPermissions();
+      setPermissions(perms);
+      return perms;
     } catch (e) {
       console.error('getPermissions error:', e);
+      return null;
     }
   }, []);
 
@@ -208,7 +215,15 @@ export function HomeScreen() {
     useCallback(() => {
       let active = true;
       (async () => {
-        await refreshPermissions();
+        const perms = await refreshPermissions();
+        if (active && shouldPromptFullScreen(perms, fullScreenPrompted)) {
+          fullScreenPrompted = true;
+          const tr = (key: string) => t(key, undefined, 'ring');
+          Alert.alert(tr('fullScreenTitle'), tr('fullScreenMessage'), [
+            { text: tr('later'), style: 'cancel' },
+            { text: tr('allow'), onPress: () => fixPermission('fullScreenIntent') },
+          ]);
+        }
         try {
           const st = await SmartAlarm.getStatus();
           if (!active) return;

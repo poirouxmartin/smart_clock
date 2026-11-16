@@ -131,6 +131,30 @@ Aube 1.4.0 n'a aucun mécanisme de mise à jour : la 1.4.1 (ou suivante) devra �
     - Le code reste privé.
   - **B. Rendre `smart_clock` public** : rien à changer dans le code, la 1.4.1 actuelle fonctionne telle quelle. Le code et tout l'historique deviennent visibles.
 
+## Point 6 : impossible d'arrêter l'alarme (retour du 16/11)
+
+Constat : l'arrêt reposait sur trois choses, toutes trois fragiles :
+- l'écran plein, qui exige l'autorisation « alarme plein écran » (Android 14+) ;
+- sans cette autorisation, Android le remplace par une simple notification ;
+- et l'appli ouverte n'affichait aucun bouton d'arrêt.
+
+Corrections :
+- Écran d'alarme par-dessus l'écran verrouillé : gros bouton Arrêter et bouton « Répéter dans 9 min ».
+- Notification en priorité maximale, colorée, avec deux actions : Arrêter et Répéter.
+- Dans l'appli ouverte : écran plein avec Arrêter et Répéter tant que l'alarme sonne. Pendant une répétition, un bandeau « Alarme reportée à HH:MM » propose « Arrêter l'alarme ».
+- Si l'autorisation plein écran est refusée, l'appli la demande à l'ouverture et mène au bon réglage.
+- Tests : `SnoozeTest` (Kotlin) et `ringUi.test.ts` (choix entre écran d'alarme, bandeau de report et rien, et demande d'autorisation).
+
+Vérifié sur émulateur (Android API 37, sonnerie de test) :
+- l'écran d'alarme s'ouvre écran verrouillé ;
+- la répétition est programmée, puis annulée depuis l'appli ;
+- la notification affiche ses actions ;
+- l'écran dans l'appli fonctionne, et Arrêter coupe bien la sonnerie.
+
+Captures : `docs/captures/alarme-ecran-verrouille.png`, `alarme-notification.png`, `alarme-dans-appli.png`, `alarme-permission-plein-ecran.png`.
+
+À vérifier par Martin : au prochain réveil, l'écran plein apparaît téléphone verrouillé, et Arrêter coupe le son.
+
 ## À vérifier sur une vraie nuit
 
 - [ ] Accueil > "Dernier réveil" : version 1.4.0 (7), son joué = celui choisi, lecteur `mediaplayer`, aucune erreur.

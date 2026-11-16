@@ -61,6 +61,12 @@ export type WakeOptions = {
   torch: boolean;
 };
 
+export interface RingState {
+  ringing: boolean;
+  reason: string;
+  snoozeUntilMs: number;
+}
+
 type SmartAlarmNative = {
   startNight(targetAtMs: number, windowMinutes: number): Promise<{ exactAlarm: boolean }>;
   cancelNight(): Promise<void>;
@@ -84,6 +90,9 @@ type SmartAlarmNative = {
   getAppVersion(): Promise<string>;
   getVersionInfo(): Promise<VersionInfo>;
   downloadAndInstallUpdate(url: string, expectedVersion: string): Promise<string>;
+  getRingState(): Promise<RingState>;
+  stopRing(): Promise<void>;
+  snoozeRing(): Promise<void>;
 };
 
 export type UpdateInstallResult = 'started' | 'need_permission' | 'bad_url' | 'download_failed' | 'bad_apk' | 'not_newer';
@@ -150,6 +159,9 @@ const fallback: SmartAlarmNative = {
   getAppVersion: async () => '?',
   getVersionInfo: async () => ({ versionName: '0.0.0', versionCode: 0, releasesApiUrl: '', apkUrlPrefix: '' }),
   downloadAndInstallUpdate: async () => 'bad_url',
+  getRingState: async () => ({ ringing: false, reason: '', snoozeUntilMs: 0 }),
+  stopRing: async () => {},
+  snoozeRing: async () => {},
 };
 
 function loadNative(): SmartAlarmNative {
@@ -190,6 +202,9 @@ export const getWakeLog = async (): Promise<WakeLogEntry[]> => {
   }
 };
 export const getAppVersion = () => native.getAppVersion();
+export const getRingState = () => native.getRingState();
+export const stopRing = () => native.stopRing();
+export const snoozeRing = () => native.snoozeRing();
 /** Installed version and where its releases are checked (AppUpdater.RELEASES_REPO). */
 export interface VersionInfo {
   versionName: string;
@@ -224,6 +239,9 @@ export const SmartAlarm = {
   stopPreview,
   getWakeLog,
   getAppVersion,
+  getRingState,
+  stopRing,
+  snoozeRing,
   getVersionInfo,
   downloadAndInstallUpdate,
 };

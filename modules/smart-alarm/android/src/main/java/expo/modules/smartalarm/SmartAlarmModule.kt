@@ -53,8 +53,26 @@ class SmartAlarmModule : Module() {
                 promise.resolve(r)
             }.start()
         }
+        AsyncFunction("getRingState") {
+            mapOf(
+                "ringing" to RingService.isRinging,
+                "reason" to RingService.currentReason,
+                "snoozeUntilMs" to AlarmStore.snoozeUntilMs(context).toDouble(),
+            )
+        }
+        AsyncFunction("stopRing") { sendRingAction(AlarmScheduler.ACTION_STOP) }
+        AsyncFunction("snoozeRing") { sendRingAction(AlarmScheduler.ACTION_SNOOZE) }
         AsyncFunction("configureAuto") { cfg: Map<String, Any?> -> configureAuto(cfg) }
         AsyncFunction("getAutoStatus") { AutoStore.toMap(context) }
+    }
+
+    private fun sendRingAction(action: String) {
+        val ctx = context
+        try {
+            ctx.startService(Intent(ctx, RingService::class.java).setAction(action))
+        } catch (e: Exception) {
+            android.util.Log.w("SmartAlarm", "Cannot send $action to RingService", e)
+        }
     }
 
     private fun startNight(targetAtMs: Long, windowMinutes: Int): Map<String, Any?> {

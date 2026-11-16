@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'react-native'; // expo-status-bar has no barStyle/backgroundColor/translucent props
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from '@/navigation/AppNavigator';
+import { RingingOverlay } from '@/components/RingingOverlay';
 import { ThemeProvider, useTheme } from '@/theme';
 
 function ThemedStatusBar() {
@@ -26,6 +27,7 @@ export default function App() {
             <ThemedStatusBar />
             <AppNavigator />
           </NavigationContainer>
+          <RingingOverlay />
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
