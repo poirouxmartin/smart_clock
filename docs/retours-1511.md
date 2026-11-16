@@ -1,23 +1,23 @@
 # Retours du 15/11/2026 : réveil doux, thèmes, détection
 
-Martin a testé Aube pendant une nuit. Trois retours :
+Retours d'un test d'Aube sur une nuit réelle :
 
-1. L'interface fait "cheap" ; il veut des thèmes, dont un thème nature.
-2. Le réveil a joué une sonnerie d'alarme par défaut. Il voulait un réveil doux : lumière du téléphone qui monte, sons naturels (oiseaux, mer, forêt, orage…).
-3. L'hypnogramme affichait "calme 99 %" toute la nuit, et il a été réveillé à 9 h (l'heure limite) car aucun moment de sommeil léger n'a été détecté.
+1. L'interface fait "cheap" ; demande de thèmes, dont un thème nature.
+2. Le réveil a joué une sonnerie d'alarme par défaut, au lieu d'un réveil doux : lumière du téléphone qui monte, sons naturels (oiseaux, mer, forêt, orage…).
+3. L'hypnogramme affichait "calme 99 %" toute la nuit, et le réveil a sonné à l'heure limite car aucun moment de sommeil léger n'a été détecté.
 
 Tout est sur la branche `dev/poiroux/reveil-doux`, version 1.4.0 (versionCode 7), publiée le 15/11 en release GitHub `v1.4.0` (APK signé par la CI avec la clé release) : https://github.com/poirouxmartin/smart_clock/releases/download/v1.4.0/aube-v1.4.0.apk
 
 ## Hypothèse de version
 
-La version installée sur le téléphone de Martin est inconnue (il n'a pas pu la vérifier).
+La version installée sur le téléphone de test est inconnue (elle n'a pas pu être vérifiée).
 
 - La 1.3.0 avait déjà les oiseaux par défaut.
 - La 1.2.0 et avant n'avaient que la sonnerie système.
 
 Deux cas :
 
-- a) Il tournait en 1.2.0 ou avant : la sonnerie est entièrement expliquée.
+- a) Le téléphone tournait en 1.2.0 ou avant : la sonnerie est entièrement expliquée.
 - b) Il tournait en 1.3.0 : un des chemins ci-dessous a joué le son système.
 
 Les deux cas sont couverts par les corrections. La nouvelle carte "Dernier réveil" de l'écran d'accueil affiche maintenant la version de l'app et le son réellement joué : après la prochaine nuit, on saura.
@@ -68,7 +68,7 @@ Trois causes trouvées ; (a) et (b) sont reproduites par un test, (c) est un com
 - b) Le bilan de nuit jugeait la qualité du signal sur toute la nuit. Les manipulations du téléphone au coucher et à l'alarme le rendaient toujours "ok" : une nuit sans mouvement s'affichait en 99 % calme, sans avertissement. Test qui le reproduit (`nightAnalysis.test.ts`) : nuit de 8 h avec manipulation seulement aux deux bouts, désormais "signal faible".
 - c) Certains téléphones arrêtent de livrer l'accéléromètre écran éteint, ce qui ressemblait exactement à un sommeil profond. Chaque minute enregistre maintenant le nombre d'échantillons reçus (environ 1200 attendus). Les minutes quasi vides sont affichées "Pas de données" (gris) avec un message précis. Le capteur est ré-enregistré à l'extinction de l'écran et après une minute sans données.
 
-Laquelle de (a), (b), (c) a dominé la nuit de Martin ? Impossible à dire sans son fichier de nuit. Si le téléphone était sur la table de chevet, rien ne bouge du tout : le bilan le dit maintenant et conseille de le poser sur le matelas près de l'oreiller.
+Laquelle de (a), (b), (c) a dominé la nuit testée ? Impossible à dire sans le fichier de nuit. Un téléphone posé hors du lit ne voit aucun mouvement : le bilan le dit maintenant et conseille de le poser sur le matelas près de l'oreiller.
 
 La logique de réveil est inchangée (fenêtre de 30 min, déclenchement sur salve de mouvement, filet de sécurité à l'heure limite, voir `docs/science-reveil.md`). Sans mouvement détectable, l'alarme sonne à l'heure limite, par conception.
 
@@ -108,7 +108,6 @@ Aube 1.4.0 n'a aucun mécanisme de mise à jour : la 1.4.1 (ou suivante) devra �
 - Au démarrage, au plus une fois par jour, Aube lit la dernière release GitHub (API `releases/latest`, premier asset `.apk`).
 - Si elle est plus récente que la version installée, l'accueil affiche une bannière « Nouvelle version x.y.z disponible » avec un bouton Installer et un bouton Plus tard.
 - Installer télécharge l'APK et vérifie le nom du paquet, que la version correspond et que le versionCode est supérieur. Si Android le demande, la bannière ouvre ensuite le réglage « Installer des applis inconnues » pour Aube, puis lance l'installeur Android (permission `REQUEST_INSTALL_PACKAGES`, FileProvider).
-- Mécanisme repris de Certo (sure-weather).
 - Le dépôt des releases est une seule constante : `AppUpdater.RELEASES_REPO`, dans `modules/smart-alarm/android/src/main/java/expo/modules/smartalarm/AppUpdater.kt`. Le JS la reçoit du natif.
 - Tests : Jest 131/131 (dont 15 sur la mise à jour), Kotlin 60/60 (dont 6 sur les URL acceptées), `tsc` sans nouvelle erreur.
 
@@ -119,17 +118,7 @@ Aube 1.4.0 n'a aucun mécanisme de mise à jour : la 1.4.1 (ou suivante) devra �
 - Captures : `docs/captures/maj-banniere.png`, `docs/captures/maj-installeur.png`.
 - Ce redirigement vers le serveur local n'est pas commité.
 
-**Bloquant : le dépôt `poirouxmartin/smart_clock` est privé.**
-- Sans connexion, GitHub répond 404 à l'API et aux APK (constaté sur émulateur). L'appli n'a pas de jeton, et ne doit pas en avoir.
-- Telle quelle, la 1.4.1 ne verra donc aucune mise à jour.
-- Martin doit choisir l'une des deux options :
-  - **A. Dépôt public de releases** (ex. `poirouxmartin/aube-releases`, contenant uniquement des APK) :
-    - créer le dépôt ;
-    - mettre `RELEASES_REPO = "poirouxmartin/aube-releases"` ;
-    - ajouter dans la CI une étape qui y publie l'APK, avec un jeton à droits d'écriture sur ce dépôt dans les secrets de `smart_clock` ;
-    - refaire le commit de version et le tag 1.4.1 après ce changement, car la constante est compilée dans l'APK.
-    - Le code reste privé.
-  - **B. Rendre `smart_clock` public** : rien à changer dans le code, la 1.4.1 actuelle fonctionne telle quelle. Le code et tout l'historique deviennent visibles.
+**Dépôt privé, puis public.** Tant que le dépôt était privé, GitHub répondait 404 sans connexion à l'API et aux APK : l'appli n'a pas de jeton et ne doit pas en avoir. Décision : rendre `smart_clock` public (le 16/11, après la 1.4.2). Rien à changer dans le code.
 
 ## Point 6 : impossible d'arrêter l'alarme (retour du 16/11)
 
@@ -153,7 +142,7 @@ Vérifié sur émulateur (Android API 37, sonnerie de test) :
 
 Captures : `docs/captures/alarme-ecran-verrouille.png`, `alarme-notification.png`, `alarme-dans-appli.png`, `alarme-permission-plein-ecran.png`.
 
-À vérifier par Martin : au prochain réveil, l'écran plein apparaît téléphone verrouillé, et Arrêter coupe le son.
+À vérifier : au prochain réveil, l'écran plein apparaît téléphone verrouillé, et Arrêter coupe le son.
 
 ## À vérifier sur une vraie nuit
 
@@ -166,6 +155,8 @@ Captures : `docs/captures/alarme-ecran-verrouille.png`, `alarme-notification.png
 
 ## Décisions en attente
 
-- Rendre les releases accessibles : option A ou B (point 5), puis pousser et publier la 1.4.1.
-- Fusionner dans `master` (la 1.3.0 elle-même n'y est toujours pas fusionnée).
-- Évolution possible, discutée mais non faite : sans signal de mouvement, réveiller sur une limite de cycle de 90 min prédite plutôt qu'à l'heure limite. Cela change l'algorithme convenu, il faut l'accord de Martin.
+- Évolution possible, discutée mais non faite : sans signal de mouvement, réveiller sur une limite de cycle de 90 min prédite plutôt qu'à l'heure limite. Cela change l'algorithme convenu et demande un accord explicite.
+
+## Version 1.4.2 (16/11)
+
+Points 5 et 6 publiés en release `v1.4.2` (versionCode 9), fusionnée dans `master` : https://github.com/poirouxmartin/smart_clock/releases/tag/v1.4.2
