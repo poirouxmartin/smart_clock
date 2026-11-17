@@ -1,6 +1,7 @@
 import {
   APK_URL_PREFIX,
   CHECK_INTERVAL_MS,
+  RETRY_AFTER_FAILURE_MS,
   checkForUpdate,
   compareVersions,
   pickUpdate,
@@ -88,7 +89,7 @@ describe('checkForUpdate', () => {
     expect(state.cached).toEqual(update);
   });
 
-  it('uses the cache within 24h, then refetches after', async () => {
+  it('uses the cache within the interval, then refetches after', async () => {
     const { store } = memoryStore();
     const fetchRelease = jest.fn().mockResolvedValue(release('v1.4.1'));
     await checkForUpdate({ installedVersion: '1.4.0', now, store, fetchRelease });
@@ -105,13 +106,23 @@ describe('checkForUpdate', () => {
     expect(await checkForUpdate({ installedVersion: '1.4.0', now, store, fetchRelease })).toBeNull();
   });
 
-  it('returns null on fetch failure and does not retry within 24h', async () => {
-    const { state, store } = memoryStore();
-    const fetchRelease = jest.fn().mockRejectedValue(new Error('offline'));
+  it('retries a failed check after RETRY_AFTER_FAILURE_MS, not a full interval', async () => {
+    const { store } = memoryStore();
+    const fetchRelease = jest.fn().mockRejectedValue(new Error('HTTP 404'));
     expect(await checkForUpdate({ installedVersion: '1.4.0', now, store, fetchRelease })).toBeNull();
-    expect(state.lastCheck).toBe(now);
-    await checkForUpdate({ installedVersion: '1.4.0', now: now + 1000, store, fetchRelease });
+    await checkForUpdate({ installedVersion: '1.4.0', now: now + RETRY_AFTER_FAILURE_MS - 1000, store, fetchRelease });
     expect(fetchRelease).toHaveBeenCalledTimes(1);
+    // e.g. the repo was private (404) and is public now: the update shows up half an hour later
+    fetchRelease.mockResolvedValue(release('v1.4.1'));
+    const res = await checkForUpdate({ installedVersion: '1.4.0', now: now + RETRY_AFTER_FAILURE_MS + 1000, store, fetchRelease });
+    expect(fetchRelease).toHaveBeenCalledTimes(2);
+    expect(res).toEqual(update);
+  });
+
+  it('keeps offering a cached update while offline', async () => {
+    const { store } = memoryStore({ lastCheck: now - CHECK_INTERVAL_MS - 1, cached: update });
+    const fetchRelease = jest.fn().mockRejectedValue(new Error('offline'));
+    expect(await checkForUpdate({ installedVersion: '1.4.0', now, store, fetchRelease })).toEqual(update);
   });
 
   it('ignores a cached update once it is installed', async () => {

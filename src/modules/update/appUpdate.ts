@@ -1,7 +1,10 @@
 /** Fallbacks only: the native module (AppUpdater.RELEASES_REPO) is the source of truth. */
 export const RELEASES_URL = 'https://api.github.com/repos/poirouxmartin/smart_clock/releases/latest';
 export const APK_URL_PREFIX = 'https://github.com/poirouxmartin/smart_clock/releases/download/';
-export const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+/** Delay between two successful checks. */
+export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+/** A failed check (offline, HTTP error) is retried sooner instead of waiting a full interval. */
+export const RETRY_AFTER_FAILURE_MS = 30 * 60 * 1000;
 
 export interface AvailableUpdate {
   version: string;
@@ -49,7 +52,10 @@ export function pickUpdate(release: unknown, apkUrlPrefix: string = APK_URL_PREF
   return null;
 }
 
-/** At most one network attempt per CHECK_INTERVAL_MS, even when it fails. Never throws. */
+/**
+ * At most one network attempt per CHECK_INTERVAL_MS after a success and per
+ * RETRY_AFTER_FAILURE_MS after a failure. Never throws.
+ */
 export async function checkForUpdate(opts: {
   installedVersion: string;
   now: number;
@@ -68,7 +74,8 @@ export async function checkForUpdate(opts: {
         candidate = pickUpdate(await fetchRelease(), apkUrlPrefix);
         await store.setCached(candidate);
       } catch (e) {
-        // keep the previous cached value
+        // keep the previous cached value, try again in RETRY_AFTER_FAILURE_MS
+        await store.setLastCheck(now - CHECK_INTERVAL_MS + RETRY_AFTER_FAILURE_MS);
         console.warn('[update] release check failed:', String(e));
       }
     }

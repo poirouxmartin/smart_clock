@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { AppState, View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useI18n } from '@/modules/i18n';
 import { getDatabaseService } from '@/modules/user-profile/DatabaseService';
@@ -40,10 +40,16 @@ export function UpdateBanner() {
   const [hint, setHint] = useState('');
   const [dismissed, setDismissed] = useState(false);
 
+  // Checked on mount and each time the app comes back to the foreground: Android keeps the app
+  // in memory for days, so a mount-only check could miss a release for a long time.
+  // checkForUpdate throttles the network itself.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     let active = true;
-    (async () => {
+    let running = false;
+    const run = async () => {
+      if (running) return;
+      running = true;
       try {
         const { versionName, releasesApiUrl, apkUrlPrefix } = await getVersionInfo();
         if (!releasesApiUrl || !apkUrlPrefix) return;
@@ -57,10 +63,17 @@ export function UpdateBanner() {
         if (active) setUpdate(found);
       } catch (e) {
         console.error('Update check error:', e);
+      } finally {
+        running = false;
       }
-    })();
+    };
+    run();
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active') run();
+    });
     return () => {
       active = false;
+      sub.remove();
     };
   }, []);
 
