@@ -529,7 +529,8 @@ export const fr = {
   },
   update: {
     title: 'Nouvelle version {{version}} disponible',
-    install: 'Installer',
+    subtitle: 'Mets Aube à jour en un geste, tes données sont conservées.',
+    install: 'Installer la mise à jour',
     downloading: 'Téléchargement…',
     later: 'Plus tard',
     started: 'Confirme l’installation dans la fenêtre Android.',

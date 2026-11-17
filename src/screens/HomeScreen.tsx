@@ -324,6 +324,8 @@ export function HomeScreen() {
     <LinearGradient colors={asGradient(c.background)} style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <UpdateBanner />
+
           <View style={styles.header}>
             <View style={styles.headerActions}>
               <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Stats')} accessibilityLabel="stats">
@@ -339,8 +341,6 @@ export function HomeScreen() {
               {new Date().toLocaleDateString(currentLocale, { weekday: 'long', day: 'numeric', month: 'long' })}
             </Text>
           </View>
-
-          <UpdateBanner />
 
           <View style={styles.card}>
             <View style={styles.switchRow}>
