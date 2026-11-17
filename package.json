@@ -1,6 +1,6 @@
 {
   "name": "smart_clock",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "main": "index.ts",
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
