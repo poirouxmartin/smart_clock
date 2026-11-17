@@ -96,7 +96,13 @@ AutoSchedule, UsualBedtime, DawnCurve, VolumeRamp, NatureSound).
 - Mise à jour : vérification au retour au premier plan, toutes les heures, nouvelle tentative
   plus tôt après un échec ; bandeau en haut de l'accueil.
 
-## Audit lot 1 (branche `dev/poiroux/audit-lot1`, non publiée)
+## Version 1.4.4 (2026-11-18)
+
+- Bandeau de mise à jour plus visible en haut de l'accueil ; vérification toutes les heures,
+  « Plus tard » n'ignore que la version proposée.
+- Correctifs d'alarme B1 à B5 et retrait du code mort (audit lot 1 ci-dessous).
+
+## Audit lot 1 (publié dans la 1.4.4)
 
 D'après l'audit du 16/11 (B1 à B5). Règles de transition pures dans `AlarmPolicy.kt`, testées
 par `AlarmPolicyTest.kt` :
