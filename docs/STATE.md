@@ -54,7 +54,8 @@ Nouveautés :
   heure habituelle, charge), démarrage du suivi au premier endormissement, faux départ annulé,
   notification « Déjà réveillé·e ? ». Modules : `AutoManager`, `ProbeReceiver`,
   `SleepApiReceiver`, `SleepOnsetDetector`, `AutoSchedule`, `UsualBedtime`.
-- **Sons de nature** (oiseaux, vagues, forêt, pluie, ruisseau ou sonnerie système), montée de
+- **Sons de nature** (oiseaux, vagues, forêt, pluie, ruisseau ; la sonnerie système est retirée
+  en 1.4.0), montée de
   volume exponentielle depuis 2 % (30/60/120 s), vibration après la montée. Modules :
   `VolumeRamp`, `NatureSound`. Licence : `docs/sounds-license.md`.
 - **Aube lumineuse** (`DawnActivity`, `DawnCurve`) : 15/30/45 min avant l'alarme, luminosité
@@ -65,6 +66,58 @@ Nouveautés :
 Tests : Jest 105 tests (7 suites) via `npm test` ; Kotlin 47 tests via
 `cd android && ./gradlew :smart-alarm:testDebugUnitTest` (WakeDecider, SleepOnsetDetector,
 AutoSchedule, UsualBedtime, DawnCurve, VolumeRamp, NatureSound).
+
+## Version 1.4.0 (2026-11-15)
+
+- Plus jamais de repli vers la sonnerie système : si aucun son de nature ne se lit, vibration et
+  lumière seules ; chaque sonnerie est journalisée (`WakeLog`). Son d'orage CC0 ajouté.
+- Nuit : bascules du téléphone et capteurs muets détectés ; une nuit sans signal de mouvement
+  exploitable est signalée au lieu d'être classée « calme ».
+- Lumière chaude sur l'écran de sonnerie, synchronisée avec la montée du son.
+- Thèmes « nature » et « aube », écrans principaux rafraîchis.
+
+## Version 1.4.1 (2026-11-15)
+
+- Mise à jour dans l'appli (`AppUpdater.kt`, `src/modules/update/`) : vérifie la dernière release
+  GitHub, propose le téléchargement et lance l'installeur système (APK vérifié : même package,
+  `versionCode` supérieur). Bloqué tant que le dépôt est privé (404).
+
+## Version 1.4.2 (2026-11-16)
+
+- Sonnerie facile à arrêter : `RingingOverlay` côté JS quand l'écran plein n'apparaît pas,
+  répétition (snooze, `Snooze.kt`), boutons Stop / Snooze dans la notification.
+- README : installation, avertissement (une alarme peut échouer) et licence.
+
+## Version 1.4.3 (2026-11-17)
+
+- Prochaine alarme affichée dans le volet de notifications, avec « Passer » (`UpcomingAlarm.kt`).
+- Thème choisi appliqué à tous les écrans ; accueil resserré.
+- Statistiques : courbe de nuit en heures d'horloge, suppression d'une nuit.
+- Mise à jour : vérification au retour au premier plan, toutes les heures, nouvelle tentative
+  plus tôt après un échec ; bandeau en haut de l'accueil.
+
+## Audit lot 1 (branche `dev/poiroux/audit-lot1`, non publiée)
+
+D'après l'audit du 16/11 (B1 à B5). Règles de transition pures dans `AlarmPolicy.kt`, testées
+par `AlarmPolicyTest.kt` :
+- **B1** une sonnerie dont le process meurt (batterie vide, crash, kill) laissait `ringing` pour
+  toujours et coupait le mode auto. L'état est désormais clos (`done`) au boot, à la réception
+  d'une alarme, dans `rearm` et par une sonde « chien de garde » armée pendant la sonnerie
+  (30 min sans sonnerie vivante ni snooze en attente). Un snooze en attente est réarmé au boot.
+- **B2** un réveil smart avant la cible (6:40 pour 7:00) ne re-sonne plus à 7:00 : la cible
+  servie par une sonnerie de moins de 3 h est consommée.
+- **B3** direct boot : prefs d'alarme en stockage protégé par l'appareil (`Prefs.kt`, migration
+  au premier déverrouillage), `LOCKED_BOOT_COMPLETED`, composants d'alarme `directBootAware`,
+  React Native chargé seulement après le déverrouillage (`MainApplication.kt`).
+- **B4** zéro jour coché : déjà désarmé sur master ; test ajouté, Sleep API et sondes aussi coupées.
+- **B5** rouvrir l'appli ne vide plus les sondes de la soirée (seulement si la cible change).
+
+Code mort retiré (graphe d'import depuis `index.ts`/`App.tsx`, 0 fichier orphelin restant) :
+écrans Login, Signup, Onboarding, EnrichedOnboarding, AlarmSetup, SleepAnalysis, DevTools ;
+modules `alarm-engine`, `auth`, `notifications`, `bedtime-calculator` ; composants et hooks
+d'animation, `constants`, `navigation/types`. Restent pour un lot suivant : dépendances
+inutilisées (`expo-sensors`, `expo-bluetooth`, `react-native-chart-kit`, `@shopify/flash-list`…)
+et modules encore atteints par Réglages sans effet réel (`light-controller`, `sound-manager`).
 
 ## Limites / à valider
 
