@@ -114,7 +114,12 @@ class RingService : Service() {
             }
             AlarmScheduler.cancel(this)
             stopService(Intent(this, SleepTrackingService::class.java))
-            UpcomingAlarm.refresh(this)
+            try {
+                // Arms the RINGING watchdog probe (auto mode) and refreshes the upcoming alarm.
+                AutoManager.rearm(applicationContext)
+            } catch (e: Exception) {
+                Log.w(TAG, "Cannot arm the ringing watchdog", e)
+            }
         }
 
         acquireWakeLock()

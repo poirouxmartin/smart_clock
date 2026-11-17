@@ -114,5 +114,5 @@ object NightSession {
         }
     }
 
-    private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(ctx: Context) = Prefs.get(ctx, PREFS)
 }

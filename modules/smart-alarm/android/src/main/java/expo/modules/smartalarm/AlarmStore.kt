@@ -12,8 +12,7 @@ object AlarmStore {
     const val RINGING = "ringing"
     const val DONE = "done"
 
-    private fun prefs(ctx: Context): SharedPreferences =
-        ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(ctx: Context): SharedPreferences = Prefs.get(ctx, PREFS)
 
     /** Synchronous write: returns true once persisted. */
     fun edit(ctx: Context, block: SharedPreferences.Editor.() -> Unit): Boolean {

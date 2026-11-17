@@ -33,6 +33,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
     private fun onFire(ctx: Context, reason: String) {
         if (reason != "test" && reason != "snooze") {
+            // A RINGING state left by a dead ring must not swallow this alarm (B1).
+            AutoManager.recoverStaleRinging(ctx, System.currentTimeMillis())
             val state = AlarmStore.state(ctx)
             // Auto mode arms the daily alarm without a session: it must ring even if no sleep was detected.
             val autoDue = AutoStore.enabled(ctx) &&

@@ -70,6 +70,7 @@ object AutoManager {
     private fun rearmInternal(ctx: Context) {
         if (!AutoStore.enabled(ctx)) return
         val now = System.currentTimeMillis()
+        recoverStaleRinging(ctx, now)
         val state = AlarmStore.state(ctx)
         if (state == AlarmStore.TRACKING || state == AlarmStore.RINGING) {
             scheduleNext(ctx, now)
@@ -80,34 +81,66 @@ object AutoManager {
             skipped = 0L
             AutoStore.save(ctx, skippedTargetMs = 0L)
         }
-        val target = AutoSchedule.nextTargetSkipping(
+        val plan = AlarmPolicy.planRearm(
             now,
             AutoStore.hour(ctx),
             AutoStore.minute(ctx),
             AutoStore.daysMask(ctx),
             skipped,
+            state,
+            AlarmStore.firedAtMs(ctx),
+            AutoStore.currentTargetMs(ctx),
         )
-        if (target == null) {
+        if (plan !is AlarmPolicy.RearmPlan.Arm) {
             // No enabled day: nothing armed, nothing to show.
             AutoStore.save(ctx, currentTargetMs = 0L)
             AlarmScheduler.cancel(ctx)
             DawnScheduler.cancel(ctx)
             cancelProbe(ctx)
+            unregisterSleepApi(ctx)
+            AutoStore.clearProbes(ctx)
             return
         }
+        val target = plan.targetMs
         AutoStore.save(ctx, currentTargetMs = target)
-        AutoStore.clearProbes(ctx)
+        // Opening the app re-arms the same target: keep tonight's probes (B5).
+        if (plan.clearProbes) AutoStore.clearProbes(ctx)
         AlarmScheduler.scheduleFallback(ctx, target)
         DawnScheduler.schedule(ctx, target)
         registerSleepApi(ctx)
         scheduleNext(ctx, now)
     }
 
+    /**
+     * Closes a RINGING state left by a ring whose process died (B1). Returns true if it did.
+     * [afterBoot]: called right after a reboot, when no ring can still be alive.
+     */
+    fun recoverStaleRinging(ctx: Context, now: Long, afterBoot: Boolean = false): Boolean {
+        val stale = AlarmPolicy.isStaleRinging(
+            AlarmStore.state(ctx),
+            AlarmStore.firedAtMs(ctx),
+            AlarmStore.snoozeUntilMs(ctx),
+            now,
+            RingService.isRinging,
+            afterBoot,
+        )
+        if (!stale) return false
+        Log.w(TAG, "Closing a stale ringing state")
+        AlarmStore.clearSnooze(ctx)
+        AlarmStore.edit(ctx) { putString("state", AlarmStore.DONE) }
+        return true
+    }
+
     /** Called by ProbeReceiver with the sensor sample taken at probe time. */
     fun onProbe(ctx: Context, probe: SleepProbe) {
         if (!AutoStore.enabled(ctx)) return
-        AutoStore.addProbe(ctx, probe)
         val now = System.currentTimeMillis()
+        // While ringing, the probe is only a watchdog against a ring that died.
+        if (recoverStaleRinging(ctx, now)) {
+            rearm(ctx)
+            return
+        }
+        AutoStore.addProbe(ctx, probe)
         val minuteOf: (Long) -> Int = { AutoSchedule.minuteOfDay(it) }
         val usual = AutoStore.usualBedMinute(ctx)
         val probes = AutoStore.probes(ctx)
@@ -233,6 +266,8 @@ object AutoManager {
                 val next = nextProbeTime(ctx, now)
                 if (next != null) scheduleProbe(ctx, next) else cancelProbe(ctx)
             }
+            // Watchdog: if the ring dies without Stop, the next probe closes the state (B1).
+            AlarmStore.RINGING -> scheduleProbe(ctx, now + AlarmPolicy.STALE_RING_MS + 60_000L)
             else -> cancelProbe(ctx)
         }
     }

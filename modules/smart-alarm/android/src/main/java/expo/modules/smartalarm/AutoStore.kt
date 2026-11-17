@@ -13,8 +13,7 @@ object AutoStore {
     private const val API_FRESH_MS = 20 * 60_000L
     private const val ALL_DAYS = 0x7F
 
-    private fun prefs(ctx: Context): SharedPreferences =
-        ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(ctx: Context): SharedPreferences = Prefs.get(ctx, PREFS)
 
     fun enabled(ctx: Context): Boolean = prefs(ctx).getBoolean("enabled", false)
 

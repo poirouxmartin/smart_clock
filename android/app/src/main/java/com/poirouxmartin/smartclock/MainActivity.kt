@@ -16,6 +16,8 @@ class MainActivity : ReactActivity() {
     // coloring the background, status bar, and navigation bar.
     // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme);
+    // The process may have started locked for an alarm (direct boot): load React Native now.
+    (application as MainApplication).ensureReactLoaded()
     super.onCreate(null)
   }
 

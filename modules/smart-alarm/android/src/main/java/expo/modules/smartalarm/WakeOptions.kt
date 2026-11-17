@@ -17,7 +17,7 @@ object WakeOptions {
     private const val MIN_DAWN_MIN = 5
     private const val MAX_DAWN_MIN = 60
 
-    private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(ctx: Context) = Prefs.get(ctx, PREFS)
 
     /** Always a bundled nature sound: a stored legacy "system" value reads as the default. */
     fun sound(ctx: Context): String = NatureSound.normalize(prefs(ctx).getString(K_SOUND, null))
