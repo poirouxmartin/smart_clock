@@ -6,6 +6,7 @@ import { getDatabaseService } from '@/modules/user-profile/DatabaseService';
 import { checkForUpdate, fetchLatestRelease, type AvailableUpdate, type UpdateStore } from '@/modules/update/appUpdate';
 import { getVersionInfo, downloadAndInstallUpdate, type UpdateInstallResult } from '../../modules/smart-alarm';
 import { makeTypography, Spacing, Radius, useTheme, type Palette } from '@/theme';
+import { updateBannerColors } from './updateBannerColors';
 
 const LAST_CHECK_KEY = 'update_last_check';
 const CACHED_KEY = 'update_cached';
@@ -32,13 +33,15 @@ const RESULT_HINT_KEYS: Record<UpdateInstallResult, string> = {
 export function UpdateBanner() {
   const { palette: c } = useTheme();
   const styles = useMemo(() => makeStyles(c), [c]);
+  const b = useMemo(() => updateBannerColors(c), [c]);
   const { t } = useI18n();
   const tu = (key: string, options?: Record<string, any>) => t(key, options, 'update');
 
   const [update, setUpdate] = useState<AvailableUpdate | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [hint, setHint] = useState('');
-  const [dismissed, setDismissed] = useState(false);
+  // "Later" hides this version only: Home stays mounted for days, a newer release must still show.
+  const [dismissedVersion, setDismissedVersion] = useState('');
 
   // Checked on mount and each time the app comes back to the foreground: Android keeps the app
   // in memory for days, so a mount-only check could miss a release for a long time.
@@ -77,7 +80,7 @@ export function UpdateBanner() {
     };
   }, []);
 
-  if (!update || dismissed) return null;
+  if (!update || update.version === dismissedVersion) return null;
 
   const onInstall = async () => {
     if (downloading) return;
@@ -95,16 +98,20 @@ export function UpdateBanner() {
   };
 
   return (
-    <View style={styles.card}>
+    <View style={styles.card} accessibilityRole="alert">
       <View style={styles.titleRow}>
-        <Ionicons name="arrow-down-circle-outline" size={18} color={c.primary} />
-        <Text style={styles.title}>{tu('title', { version: update.version })}</Text>
+        <Ionicons name="arrow-down-circle" size={32} color={b.text} />
+        <View style={styles.titleText}>
+          <Text style={styles.title}>{tu('title', { version: update.version })}</Text>
+          <Text style={styles.subtitle}>{tu('subtitle')}</Text>
+        </View>
       </View>
-      <TouchableOpacity style={[styles.button, downloading && styles.buttonDisabled]} onPress={onInstall} disabled={downloading}>
+      <TouchableOpacity style={[styles.button, downloading && styles.buttonDisabled]} onPress={onInstall} disabled={downloading} accessibilityRole="button">
+        <Ionicons name="download-outline" size={20} color={b.buttonText} />
         <Text style={styles.buttonText}>{downloading ? tu('downloading') : tu('install')}</Text>
       </TouchableOpacity>
       {hint !== '' && <Text style={styles.hint}>{hint}</Text>}
-      <TouchableOpacity style={styles.later} onPress={() => setDismissed(true)}>
+      <TouchableOpacity style={styles.later} onPress={() => setDismissedVersion(update.version)}>
         <Text style={styles.laterText}>{tu('later')}</Text>
       </TouchableOpacity>
     </View>
@@ -113,15 +120,25 @@ export function UpdateBanner() {
 
 const makeStyles = (c: Palette) => {
   const T = makeTypography(c);
+  const b = updateBannerColors(c);
   return StyleSheet.create({
-    card: { backgroundColor: c.bgCard + 'e6', borderRadius: 24, padding: Spacing.xxl, marginBottom: Spacing.xl, borderWidth: 1, borderColor: c.primary + '60' },
-    titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    title: { ...T.label, color: c.text, flex: 1 },
-    button: { marginTop: Spacing.lg, paddingVertical: Spacing.md, borderRadius: Radius.full, backgroundColor: c.primary, alignItems: 'center' },
+    // Solid primary card, not bgCard: it must stand out from the other cards (tested in updateBannerColors).
+    card: {
+      backgroundColor: b.background, borderRadius: 24, padding: Spacing.xxl, marginBottom: Spacing.xl,
+      elevation: 6, shadowColor: c.bg, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+    titleText: { flex: 1 },
+    title: { ...T.body, fontSize: 18, fontWeight: '700', color: b.text },
+    subtitle: { ...T.bodySmall, color: b.text, opacity: 0.85, marginTop: 2 },
+    button: {
+      marginTop: Spacing.lg, paddingVertical: Spacing.lg, borderRadius: Radius.full, backgroundColor: b.buttonBackground,
+      flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: Spacing.sm,
+    },
     buttonDisabled: { opacity: 0.6 },
-    buttonText: { ...T.body, color: c.onPrimary, fontWeight: '600' },
-    hint: { ...T.caption, color: c.textSecondary, marginTop: Spacing.md },
-    later: { alignItems: 'center', marginTop: Spacing.md },
-    laterText: { ...T.bodySmall, color: c.textMuted },
+    buttonText: { ...T.body, fontSize: 17, color: b.buttonText, fontWeight: '700' },
+    hint: { ...T.caption, color: b.text, marginTop: Spacing.md },
+    later: { alignItems: 'center', marginTop: Spacing.md, paddingVertical: Spacing.xs },
+    laterText: { ...T.bodySmall, color: b.text, textDecorationLine: 'underline' },
   });
 };

@@ -528,7 +528,8 @@ export const en = {
   },
   update: {
     title: 'New version {{version}} available',
-    install: 'Install',
+    subtitle: 'Update Aube in one tap, your data is kept.',
+    install: 'Install the update',
     downloading: 'Downloading…',
     later: 'Later',
     started: 'Confirm the installation in the Android dialog.',
