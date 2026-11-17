@@ -64,13 +64,7 @@ export interface SoundAsset {
 }
 
 export type RootStackParamList = {
-  Login: undefined;
-  Signup: undefined;
-  Onboarding: undefined;
-  EnrichedOnboarding: undefined;
   Home: undefined;
-  AlarmSetup: { alarmId?: string };
-  SleepAnalysis: { sessionId?: string };
   SleepMode: undefined;
   Stats: undefined;
   Settings: undefined;
