@@ -119,6 +119,17 @@ describe('checkForUpdate', () => {
     expect(res).toEqual(update);
   });
 
+  it('offers a release published just after a check when the app is reopened two hours later', async () => {
+    // 17/11: the phone checked at 10:00 (latest = installed 1.4.2), v1.4.3 went out at 11:16,
+    // the app was reopened at 12:00 and offered nothing.
+    const { store } = memoryStore();
+    const fetchRelease = jest.fn().mockResolvedValue(release('v1.4.2'));
+    expect(await checkForUpdate({ installedVersion: '1.4.2', now, store, fetchRelease })).toBeNull();
+    fetchRelease.mockResolvedValue(release('v1.4.3'));
+    const res = await checkForUpdate({ installedVersion: '1.4.2', now: now + 2 * 60 * 60 * 1000, store, fetchRelease });
+    expect(res).toEqual({ version: '1.4.3', url: `${APK_URL_PREFIX}v1.4.3/aube-v1.4.3.apk` });
+  });
+
   it('keeps offering a cached update while offline', async () => {
     const { store } = memoryStore({ lastCheck: now - CHECK_INTERVAL_MS - 1, cached: update });
     const fetchRelease = jest.fn().mockRejectedValue(new Error('offline'));

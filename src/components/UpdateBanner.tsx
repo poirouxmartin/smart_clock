@@ -38,7 +38,8 @@ export function UpdateBanner() {
   const [update, setUpdate] = useState<AvailableUpdate | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [hint, setHint] = useState('');
-  const [dismissed, setDismissed] = useState(false);
+  // "Later" hides this version only: Home stays mounted for days, a newer release must still show.
+  const [dismissedVersion, setDismissedVersion] = useState('');
 
   // Checked on mount and each time the app comes back to the foreground: Android keeps the app
   // in memory for days, so a mount-only check could miss a release for a long time.
@@ -77,7 +78,7 @@ export function UpdateBanner() {
     };
   }, []);
 
-  if (!update || dismissed) return null;
+  if (!update || update.version === dismissedVersion) return null;
 
   const onInstall = async () => {
     if (downloading) return;
@@ -104,7 +105,7 @@ export function UpdateBanner() {
         <Text style={styles.buttonText}>{downloading ? tu('downloading') : tu('install')}</Text>
       </TouchableOpacity>
       {hint !== '' && <Text style={styles.hint}>{hint}</Text>}
-      <TouchableOpacity style={styles.later} onPress={() => setDismissed(true)}>
+      <TouchableOpacity style={styles.later} onPress={() => setDismissedVersion(update.version)}>
         <Text style={styles.laterText}>{tu('later')}</Text>
       </TouchableOpacity>
     </View>

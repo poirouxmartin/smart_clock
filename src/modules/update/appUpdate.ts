@@ -1,8 +1,12 @@
 /** Fallbacks only: the native module (AppUpdater.RELEASES_REPO) is the source of truth. */
 export const RELEASES_URL = 'https://api.github.com/repos/poirouxmartin/smart_clock/releases/latest';
 export const APK_URL_PREFIX = 'https://github.com/poirouxmartin/smart_clock/releases/download/';
-/** Delay between two successful checks. */
-export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+/**
+ * Delay between two successful checks. Short so a release published just after a check is
+ * offered within the hour; one unauthenticated request per hour per phone stays far below
+ * GitHub's 60 per hour per IP.
+ */
+export const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 /** A failed check (offline, HTTP error) is retried sooner instead of waiting a full interval. */
 export const RETRY_AFTER_FAILURE_MS = 30 * 60 * 1000;
 
