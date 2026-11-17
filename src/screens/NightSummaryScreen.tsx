@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, type NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,44 +7,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useI18n } from '@/modules/i18n';
 import { NightRepository } from '@/modules/night/NightRepository';
 import type { EpochState, NightSummary } from '@/modules/night/nightAnalysis';
+import { NightChart } from '@/components/NightChart';
 import { makeTypography, Spacing, Radius, useTheme, asGradient, type Palette } from '@/theme';
 import type { RootStackParamList } from '@/types';
 
 type SummaryRoute = RouteProp<RootStackParamList, 'NightSummary'>;
 type SummaryNav = NavigationProp<RootStackParamList>;
 
-const MAX_BARS = 120;
-
-const STATE_HEIGHTS: Record<EpochState, number> = {
-  calm: 64,
-  unknown: 24,
-  light: 36,
-  wake: 14,
-};
-
-const SEVERITY: Record<EpochState, number> = { calm: 0, unknown: 1, light: 2, wake: 3 };
-
 const pad = (n: number) => String(n).padStart(2, '0');
 const hm = (ms: number) => {
   const d = new Date(ms);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
-
-/** Regroupe les époques en au plus MAX_BARS barres (la plus « éveillée » du groupe l'emporte). */
-function bucketStates(states: EpochState[], maxBars: number): EpochState[] {
-  if (states.length <= maxBars) return states;
-  const size = Math.ceil(states.length / maxBars);
-  const out: EpochState[] = [];
-  for (let i = 0; i < states.length; i += size) {
-    let worst: EpochState = 'calm';
-    const end = Math.min(i + size, states.length);
-    for (let j = i; j < end; j++) {
-      if (SEVERITY[states[j]] > SEVERITY[worst]) worst = states[j];
-    }
-    out.push(worst);
-  }
-  return out;
-}
 
 export function NightSummaryScreen() {
   const navigation = useNavigation<SummaryNav>();
@@ -76,8 +50,6 @@ export function NightSummaryScreen() {
     };
   }, [sessionId]);
 
-  const bars = useMemo(() => (summary ? bucketStates(summary.states, MAX_BARS) : []), [summary]);
-
   const dur = (min: number) => tn('durationFormat', { h: Math.floor(min / 60), m: min % 60 });
 
   const wakeReason = (s: NightSummary): string => {
@@ -94,7 +66,25 @@ export function NightSummaryScreen() {
     }
   };
 
-  const goBack = () => navigation.navigate('Home');
+  const goBack = () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'));
+
+  const onDelete = () => {
+    Alert.alert(tn('deleteNightTitle'), tn('deleteNightMessage'), [
+      { text: tn('cancel'), style: 'cancel' },
+      {
+        text: tn('delete'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await NightRepository.deleteNight(sessionId);
+          } catch (e) {
+            console.error('deleteNight error:', e);
+          }
+          goBack();
+        },
+      },
+    ]);
+  };
 
   const header = (
     <View style={styles.header}>
@@ -102,6 +92,11 @@ export function NightSummaryScreen() {
         <Ionicons name="arrow-back" size={22} color={c.textSecondary} />
       </TouchableOpacity>
       <Text style={styles.title}>{tn('summaryTitle')}</Text>
+      {summary && (
+        <TouchableOpacity style={styles.deleteButton} onPress={onDelete} accessibilityLabel={tn('deleteNightTitle')}>
+          <Ionicons name="trash-outline" size={20} color={c.danger} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -183,14 +178,7 @@ export function NightSummaryScreen() {
 
           <View style={[styles.card, styles.cardColumn]}>
             <Text style={styles.cardTitle}>{tn('hypnogram')}</Text>
-            <View style={styles.hypnoRow}>
-              {bars.map((st, i) => (
-                <View
-                  key={i}
-                  style={[styles.bar, { height: STATE_HEIGHTS[st], backgroundColor: stateColors[st] }]}
-                />
-              ))}
-            </View>
+            <NightChart summary={summary} />
 
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
@@ -233,7 +221,8 @@ const makeStyles = (c: Palette) => {
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.md },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.bgSurface, alignItems: 'center', justifyContent: 'center' },
-  title: { ...T.h2 },
+  title: { ...T.h2, flex: 1 },
+  deleteButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.bgSurface, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { padding: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: 60 },
   date: { ...T.body, color: c.textMuted, textTransform: 'capitalize', marginBottom: Spacing.lg },
   muted: { ...T.bodySmall, color: c.textMuted },
@@ -250,8 +239,6 @@ const makeStyles = (c: Palette) => {
   warningText: { ...T.bodySmall, color: c.warning, flex: 1 },
 
   cardTitle: { ...T.label, marginBottom: Spacing.md },
-  hypnoRow: { flexDirection: 'row', alignItems: 'flex-end', height: 70 },
-  bar: { flex: 1, borderRadius: 1, marginHorizontal: 0.2 },
   legendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: Spacing.md, flexWrap: 'wrap', gap: Spacing.sm },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   legendDot: { width: 10, height: 10, borderRadius: 5 },

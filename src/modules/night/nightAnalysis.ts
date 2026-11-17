@@ -32,6 +32,11 @@ export interface NightSummary {
   states: EpochState[];
   pct: { wake: number; light: number; calm: number; unknown: number };
   signal: 'ok' | 'low' | 'none' | 'nosensor';
+  /** Absent in summaries stored before 1.4.3. */
+  targetAtMs?: number;
+  windowMinutes?: number;
+  /** Start time of each epoch, aligned with states. */
+  epochTimes?: number[];
 }
 
 const WAKE_T = 30;
@@ -183,5 +188,8 @@ export function analyzeNight(night: NightRecord): NightSummary {
     states,
     pct,
     signal,
+    targetAtMs: night.targetAtMs,
+    windowMinutes: night.windowMinutes,
+    epochTimes: night.epochs.map(e => e[0] - epochMs),
   };
 }

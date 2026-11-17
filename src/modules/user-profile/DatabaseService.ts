@@ -324,6 +324,11 @@ export class DatabaseService {
     return result ? JSON.parse(result.data) : null;
   }
 
+  async deleteNightSummary(sessionId: string): Promise<void> {
+    await this.ensureInit();
+    this.getDb().runSync('DELETE FROM night_summaries WHERE session_id = ?', [sessionId]);
+  }
+
   async getNightSummaries(limit: number = 30): Promise<NightSummary[]> {
     await this.ensureInit();
     const results = this.getDb().getAllSync<{ data: string }>(

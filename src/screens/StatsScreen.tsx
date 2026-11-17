@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { useNavigation, useFocusEffect, type NavigationProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useI18n } from '@/modules/i18n';
@@ -46,20 +46,41 @@ export function StatsScreen() {
   const [nights, setNights] = useState<NightSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    NightRepository.syncNights()
-      .then(list => {
-        if (active) setNights(list);
-      })
-      .catch(e => console.error('StatsScreen load error:', e))
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  // Reload on focus: a night deleted from its summary must vanish here too.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      NightRepository.syncNights()
+        .then(list => {
+          if (active) setNights(list);
+        })
+        .catch(e => console.error('StatsScreen load error:', e))
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
+
+  const confirmDelete = (s: NightSummary) => {
+    Alert.alert(tn('deleteNightTitle'), tn('deleteNightMessage'), [
+      { text: tn('cancel'), style: 'cancel' },
+      {
+        text: tn('delete'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await NightRepository.deleteNight(s.sessionId);
+            setNights(prev => prev.filter(n => n.sessionId !== s.sessionId));
+          } catch (e) {
+            console.error('deleteNight error:', e);
+          }
+        },
+      },
+    ]);
+  };
 
   const stats = useMemo(() => {
     const smart = nights.filter(n => n.wakeReason === 'smart');
@@ -148,7 +169,14 @@ export function StatsScreen() {
               </View>
               <Text style={styles.nightWake}>{s.wakeAtMs ? hm(s.wakeAtMs) : '--'}</Text>
               <Ionicons name={reasonIcon(s)} size={18} color={c.textSecondary} />
-              <Ionicons name="chevron-forward" size={16} color={c.textMuted} />
+              <TouchableOpacity
+                style={styles.rowDelete}
+                onPress={() => confirmDelete(s)}
+                hitSlop={8}
+                accessibilityLabel={tn('deleteNightTitle')}
+              >
+                <Ionicons name="trash-outline" size={18} color={c.danger} />
+              </TouchableOpacity>
             </TouchableOpacity>
           ))}
         </>
@@ -170,7 +198,8 @@ const makeStyles = (c: Palette) => {
 
   sectionTitle: { ...T.label, marginBottom: Spacing.md, marginTop: Spacing.lg },
 
-  nightRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: c.border },
+  rowDelete: { paddingLeft: Spacing.sm, paddingVertical: Spacing.xs },
+    nightRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: c.border },
   nightDate: { width: 100 },
   nightDay: { ...T.bodySmall, color: c.textMuted },
   nightData: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
