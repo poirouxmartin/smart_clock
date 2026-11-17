@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useI18n } from '@/modules/i18n';
 import { getSoundManager } from '@/modules/sound-manager';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
-import type { RootStackParamList } from '@/types';
-
-type CustomSoundsNav = React.NavigationProp<RootStackParamList, 'CustomSounds'>;
+import { Screen, Card } from '@/components/Screen';
+import { makeTypography, Spacing, Radius, useTheme, useThemedStyles, type Palette } from '@/theme';
 
 export function CustomSoundsScreen() {
-  const navigation = useNavigation<CustomSoundsNav>();
-  const { t, tCommon, tSounds } = useI18n();
+  const { tCommon, tSounds } = useI18n();
+  const { palette: c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   
   const [customSounds, setCustomSounds] = useState<Array<{id: string; name: string; uri: string}>>([]);
   const [loading, setLoading] = useState(true);
@@ -87,86 +86,65 @@ export function CustomSoundsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <View style={styles.loading}>
-          <Text style={styles.loadingText}>{tCommon('loading')}</Text>
-        </View>
-      </SafeAreaView>
+      <Screen title={tSounds('customSounds')} icon="musical-notes-outline">
+        <Text style={styles.helpText}>{tCommon('loading')}</Text>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backText}>{tCommon('back')}</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>{tSounds('customSounds')}</Text>
-        </View>
+    <Screen title={tSounds('customSounds')} icon="musical-notes-outline">
+      <Card title={tSounds('addCustom')}>
+        <TouchableOpacity style={styles.addButton} onPress={addCustomSound}>
+          <Text style={styles.addButtonText}>+ {tSounds('addCustom')}</Text>
+        </TouchableOpacity>
+        <Text style={styles.helpText}>{tSounds('importAudio')} (MP3, WAV, M4A)</Text>
+      </Card>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{tSounds('addCustom')}</Text>
-          <TouchableOpacity style={styles.addButton} onPress={addCustomSound}>
-            <Text style={styles.addButtonText}>+ {tSounds('addCustom')}</Text>
-          </TouchableOpacity>
-          <Text style={styles.helpText}>{tSounds('importAudio')} (MP3, WAV, M4A)</Text>
+      {customSounds.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>{tSounds('customSounds')}</Text>
+          <Text style={styles.emptySubtext}>{tCommon('noData')}</Text>
         </View>
-
-        {customSounds.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>{tSounds('customSounds')}</Text>
-            <Text style={styles.emptySubtext}>{tCommon('noData')}</Text>
-          </View>
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{tCommon('sounds')} ({customSounds.length})</Text>
-            {customSounds.map(sound => (
-              <View key={sound.id} style={styles.soundRow}>
-                <View style={styles.soundInfo}>
-                  <Text style={styles.soundName}>{sound.name}</Text>
-                  <Text style={styles.soundType}>{tSounds('customSounds')}</Text>
-                </View>
-                <View style={styles.soundActions}>
-                  <TouchableOpacity style={[styles.actionButton, styles.playButton]} onPress={() => playSound(sound.id)}>
-                    <Text style={styles.actionButtonText}>▶</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => removeSound(sound.id)}>
-                    <Text style={styles.actionButtonText}>🗑</Text>
-                  </TouchableOpacity>
-                </View>
+      ) : (
+        <Card title={`${tCommon('sounds')} (${customSounds.length})`}>
+          {customSounds.map(sound => (
+            <View key={sound.id} style={styles.soundRow}>
+              <View style={styles.soundInfo}>
+                <Text style={styles.soundName}>{sound.name}</Text>
+                <Text style={styles.soundType}>{tSounds('customSounds')}</Text>
               </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+              <View style={styles.soundActions}>
+                <TouchableOpacity style={[styles.actionButton, styles.playButton]} onPress={() => playSound(sound.id)}>
+                  <Ionicons name="play" size={18} color={c.onPrimary} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionButton} onPress={() => removeSound(sound.id)}>
+                  <Ionicons name="trash-outline" size={18} color={c.danger} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </Card>
+      )}
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0e1a' },
-  content: { padding: 20, paddingBottom: 40 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#8b9cb3', fontSize: 16 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  backText: { color: '#8b9cb3', fontSize: 16 },
-  title: { fontSize: 22, fontWeight: '600', color: '#fff' },
-  card: { backgroundColor: '#131a2e', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#1e293b' },
-  cardTitle: { fontSize: 14, color: '#8b9cb3', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
-  addButton: { backgroundColor: '#0ea5e9', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
-  addButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  helpText: { fontSize: 12, color: '#64748b', textAlign: 'center' },
-  emptyState: { padding: 40, alignItems: 'center', backgroundColor: '#131a2e', borderRadius: 12, borderWidth: 1, borderColor: '#1e293b' },
-  emptyText: { fontSize: 18, fontWeight: '600', color: '#fff', marginBottom: 8 },
-  emptySubtext: { fontSize: 14, color: '#8b9cb3' },
-  soundRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1e293b' },
-  soundInfo: { flex: 1 },
-  soundName: { fontSize: 16, fontWeight: '600', color: '#fff' },
-  soundType: { fontSize: 13, color: '#8b9cb3' },
-  soundActions: { flexDirection: 'row', gap: 12 },
-  actionButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
-  playButton: { backgroundColor: '#0ea5e9' },
-  deleteButton: { backgroundColor: '#ef4444' },
-  actionButtonText: { fontSize: 18, color: '#fff' },
-});
+const makeStyles = (c: Palette) => {
+  const T = makeTypography(c);
+  return StyleSheet.create({
+    addButton: { backgroundColor: c.primary, paddingVertical: 14, borderRadius: Radius.md, alignItems: 'center', marginBottom: Spacing.sm },
+    addButtonText: { ...T.body, color: c.onPrimary, fontWeight: '600' },
+    helpText: { ...T.caption, textAlign: 'center' },
+    emptyState: { padding: 40, alignItems: 'center', backgroundColor: c.bgCard + 'e6', borderRadius: 24, borderWidth: 1, borderColor: c.border },
+    emptyText: { ...T.h3, marginBottom: Spacing.sm },
+    emptySubtext: { ...T.bodySmall, color: c.textMuted },
+    soundRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
+    soundInfo: { flex: 1 },
+    soundName: { ...T.body, color: c.text, fontWeight: '600' },
+    soundType: { ...T.caption },
+    soundActions: { flexDirection: 'row', gap: Spacing.md },
+    actionButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.bgSurface, alignItems: 'center', justifyContent: 'center' },
+    playButton: { backgroundColor: c.primary },
+  });
+};

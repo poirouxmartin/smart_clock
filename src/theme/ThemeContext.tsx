@@ -41,3 +41,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useTheme = () => useContext(ThemeContext);
+
+/** Styles built from the active palette, rebuilt only when the theme changes. */
+export function useThemedStyles<T>(make: (p: Palette) => T): T {
+  const { palette } = useTheme();
+  return useMemo(() => make(palette), [make, palette]);
+}

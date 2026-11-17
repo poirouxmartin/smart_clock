@@ -14,7 +14,7 @@ import type { NightSummary } from '@/modules/night/nightAnalysis';
 import { SmartAlarm } from '../../modules/smart-alarm';
 import type { AutoStatus, NightStatus, PermissionStatus, WakeLogEntry, WakeOptions, WakeSound } from '../../modules/smart-alarm';
 import { ALL_DAYS, DAY_KEYS, describeNextTarget, formatMinuteOfDay, isDayOn, toggleDay } from '@/modules/night/autoConfig';
-import { makeTypography, Spacing, Radius, useTheme, THEME_IDS, PALETTES, asGradient, type Palette } from '@/theme';
+import { makeTypography, Spacing, Radius, useTheme, asGradient, type Palette } from '@/theme';
 import type { RootStackParamList } from '@/types';
 
 type HomeNav = NavigationProp<RootStackParamList>;
@@ -37,7 +37,6 @@ const SOUND_CHOICES: Array<{ id: WakeSound; labelKey: string }> = [
   { id: 'storm', labelKey: 'soundStorm' },
 ];
 const SOUND_LABEL_KEYS: Record<string, string> = Object.fromEntries(SOUND_CHOICES.map(s => [s.id, s.labelKey]));
-const THEME_LABEL_KEYS = { night: 'themeNight', nature: 'themeNature', dawn: 'themeDawn' } as const;
 const WAKE_REASON_KEYS: Record<string, string> = { smart: 'logReasonSmart', fallback: 'logReasonFallback', test: 'logReasonTest' };
 const RAMP_CHOICES = [30, 60, 120];
 const DAWN_CHOICES = [15, 30, 45];
@@ -72,7 +71,7 @@ function greetingKey(hour: number): string {
 }
 
 export function HomeScreen() {
-  const { palette: c, themeId, setThemeId } = useTheme();
+  const { palette: c } = useTheme();
   const styles = useMemo(() => makeStyles(c), [c]);
   const navigation = useNavigation<HomeNav>();
   const { t, formatTime, currentLocale } = useI18n();
@@ -281,6 +280,14 @@ export function HomeScreen() {
     }
   };
 
+  const onUnskip = async () => {
+    try {
+      setAutoStatus(await SmartAlarm.unskipAuto());
+    } catch (e) {
+      console.error('unskipAuto error:', e);
+    }
+  };
+
   const onTestRing = async () => {
     try {
       await SmartAlarm.testRing(10);
@@ -318,6 +325,14 @@ export function HomeScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
+            <View style={styles.headerActions}>
+              <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Stats')} accessibilityLabel="stats">
+                <Ionicons name="bar-chart-outline" size={20} color={c.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Settings')} accessibilityLabel="settings">
+                <Ionicons name="settings-outline" size={20} color={c.textSecondary} />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.greeting}>{tn(greetingKey(new Date().getHours()))}</Text>
             <Text style={styles.clock}>{clock}</Text>
             <Text style={styles.dateLine}>
@@ -342,13 +357,13 @@ export function HomeScreen() {
             </View>
             {settings.auto && (
               <>
-                <View style={styles.chipRow}>
+                <View style={styles.chipRowFill}>
                   {DAY_KEYS.map((key, i) => {
                     const on = isDayOn(settings.daysMask, i);
                     return (
                       <TouchableOpacity
                         key={key}
-                        style={[styles.chip, styles.dayChip, on && styles.chipActive]}
+                        style={[styles.chip, styles.chipFill, styles.dayChip, on && styles.chipActive]}
                         onPress={() => updateSettings({ daysMask: toggleDay(settings.daysMask, i) })}
                       >
                         <Text style={[styles.chipText, on && styles.chipTextActive]}>{tn(`dayLetter${i}`)}</Text>
@@ -357,6 +372,16 @@ export function HomeScreen() {
                   })}
                 </View>
                 {autoLine && <Text style={styles.windowLine}>{autoLine}</Text>}
+                {autoStatus && autoStatus.skippedTargetMs > Date.now() && (
+                  <TouchableOpacity style={styles.skipRow} onPress={onUnskip}>
+                    <Text style={styles.caption}>
+                      {tn('skippedLine', {
+                        when: new Date(autoStatus.skippedTargetMs).toLocaleString(currentLocale, { weekday: 'long', hour: '2-digit', minute: '2-digit' }),
+                      })}
+                    </Text>
+                    <Text style={styles.secondaryText}>{tn('unskip')}</Text>
+                  </TouchableOpacity>
+                )}
                 {activityDenied && <Text style={styles.hint}>{tn('autoActivityDenied')}</Text>}
               </>
             )}
@@ -376,13 +401,13 @@ export function HomeScreen() {
             </View>
 
             <Text style={styles.label}>{tn('window')}</Text>
-            <View style={styles.chipRow}>
+            <View style={styles.chipRowFill}>
               {WINDOW_CHOICES.map(min => {
                 const active = settings.windowMinutes === min;
                 return (
                   <TouchableOpacity
                     key={min}
-                    style={[styles.chip, active && styles.chipActive]}
+                    style={[styles.chip, styles.chipFill, active && styles.chipActive]}
                     onPress={() => updateSettings({ windowMinutes: min })}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>{tn('windowChip', { min })}</Text>
@@ -402,14 +427,20 @@ export function HomeScreen() {
               <Text style={styles.cardTitleInline}>{tn('wakeStyleTitle')}</Text>
             </View>
 
-            <Text style={styles.label}>{tn('soundLabel')}</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, styles.labelInRow]}>{tn('soundLabel')}</Text>
+              <TouchableOpacity style={styles.inlineAction} onPress={onPreview}>
+                <Ionicons name="play" size={14} color={c.primary} />
+                <Text style={styles.secondaryText}>{tn('listen')}</Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.chipRow}>
               {SOUND_CHOICES.map(choice => {
                 const active = wake.sound === choice.id;
                 return (
                   <TouchableOpacity
                     key={choice.id}
-                    style={[styles.chip, active && styles.chipActive]}
+                    style={[styles.chip, styles.chipThird, active && styles.chipActive]}
                     onPress={() => updateWake({ sound: choice.id })}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>{tn(choice.labelKey)}</Text>
@@ -417,19 +448,15 @@ export function HomeScreen() {
                 );
               })}
             </View>
-            <TouchableOpacity style={styles.secondaryButton} onPress={onPreview}>
-              <Ionicons name="play" size={16} color={c.primary} />
-              <Text style={styles.secondaryText}>{tn('listen')}</Text>
-            </TouchableOpacity>
 
             <Text style={styles.label}>{tn('rampLabel')}</Text>
-            <View style={styles.chipRow}>
+            <View style={styles.chipRowFill}>
               {RAMP_CHOICES.map(s => {
                 const active = wake.rampSeconds === s;
                 return (
                   <TouchableOpacity
                     key={s}
-                    style={[styles.chip, active && styles.chipActive]}
+                    style={[styles.chip, styles.chipFill, active && styles.chipActive]}
                     onPress={() => updateWake({ rampSeconds: s })}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>{tn('secondsValue', { s })}</Text>
@@ -448,13 +475,13 @@ export function HomeScreen() {
               />
             </View>
             {wake.dawnEnabled && (
-              <View style={styles.chipRow}>
+              <View style={styles.chipRowFill}>
                 {DAWN_CHOICES.map(min => {
                   const active = wake.dawnMinutes === min;
                   return (
                     <TouchableOpacity
                       key={min}
-                      style={[styles.chip, active && styles.chipActive]}
+                      style={[styles.chip, styles.chipFill, active && styles.chipActive]}
                       onPress={() => updateWake({ dawnMinutes: min })}
                     >
                       <Text style={[styles.chipText, active && styles.chipTextActive]}>{tn('minutesValue', { min })}</Text>
@@ -474,28 +501,6 @@ export function HomeScreen() {
               />
             </View>
             <Text style={styles.caption}>{tn('torchCaption')}</Text>
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="sunny-outline" size={18} color={c.primary} />
-              <Text style={styles.cardTitleInline}>{tn('themeTitle')}</Text>
-            </View>
-            <View style={styles.themeRow}>
-              {THEME_IDS.map(id => {
-                const active = id === themeId;
-                return (
-                  <TouchableOpacity key={id} style={styles.themeItem} onPress={() => setThemeId(id)}>
-                    <View style={[styles.swatchRing, active && { borderColor: c.primary }]}>
-                      <LinearGradient colors={asGradient(PALETTES[id].background)} style={styles.swatch}>
-                        <Ionicons name={PALETTES[id].icon} size={18} color={PALETTES[id].primary} />
-                      </LinearGradient>
-                    </View>
-                    <Text style={[styles.themeLabel, active && { color: c.text, fontWeight: '600' }]}>{tn(THEME_LABEL_KEYS[id])}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
           </View>
 
           {missingPerms.length > 0 && (
@@ -582,14 +587,6 @@ export function HomeScreen() {
             <Text style={styles.testLinkText}>{tn('testRing')}</Text>
           </TouchableOpacity>
 
-          <View style={styles.bottomBar}>
-            <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Stats')}>
-              <Ionicons name="bar-chart" size={22} color={c.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.bottomButton} onPress={() => navigation.navigate('Settings')}>
-              <Ionicons name="settings-outline" size={22} color={c.textMuted} />
-            </TouchableOpacity>
-          </View>
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -623,15 +620,10 @@ const makeStyles = (c: Palette) => {
   dateLine: { ...T.body, color: c.textMuted, textTransform: 'capitalize', marginTop: Spacing.xs },
   clock: { ...T.clock, fontSize: 56, textAlign: 'center' },
 
-  card: { backgroundColor: c.bgCard + 'e6', borderRadius: 24, padding: Spacing.xxl, marginBottom: Spacing.xl, borderWidth: 1, borderColor: c.border },
+  card: { backgroundColor: c.bgCard + 'e6', borderRadius: 24, padding: Spacing.xl, marginBottom: Spacing.xl, borderWidth: 1, borderColor: c.border },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
   cardHeaderInline: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   cardTitleInline: { ...T.label, color: c.text },
-  themeRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: Spacing.sm },
-  themeItem: { alignItems: 'center', gap: Spacing.sm },
-  swatchRing: { padding: 3, borderRadius: 999, borderWidth: 2, borderColor: 'transparent' },
-  swatch: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  themeLabel: { ...T.caption },
   diagLine: { ...T.bodySmall, marginTop: Spacing.xs },
   diagError: { ...T.bodySmall, color: c.danger, marginTop: Spacing.xs },
   diagVersion: { ...T.caption, marginTop: Spacing.md },
@@ -639,11 +631,11 @@ const makeStyles = (c: Palette) => {
   label: { ...T.caption, marginTop: Spacing.md, marginBottom: Spacing.xs },
   muted: { ...T.bodySmall, color: c.textMuted },
 
-  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  stepButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.bgSurface, alignItems: 'center', justifyContent: 'center' },
-  stepValue: { fontSize: 44, fontWeight: '300', color: c.text, minWidth: 64, textAlign: 'center', fontVariant: ['tabular-nums'] },
-  colon: { fontSize: 40, fontWeight: '300', color: c.textMuted },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  stepButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.bgSurface, alignItems: 'center', justifyContent: 'center' },
+  stepValue: { fontSize: 40, fontWeight: '300', color: c.text, minWidth: 52, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  colon: { fontSize: 36, fontWeight: '300', color: c.textMuted },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   chip: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.full, borderWidth: 1, borderColor: c.borderLight },
@@ -651,7 +643,13 @@ const makeStyles = (c: Palette) => {
   chipText: { ...T.bodySmall, color: c.textSecondary },
   chipTextActive: { color: c.onPrimary, fontWeight: '600' },
   windowLine: { ...T.body, color: c.primaryLight, marginTop: Spacing.lg, textAlign: 'center', fontWeight: '500' },
-  dayChip: { width: 40, alignItems: 'center', paddingHorizontal: 0 },
+  dayChip: { alignItems: 'center', paddingHorizontal: 0 },
+  chipRowFill: { flexDirection: 'row', gap: Spacing.xs + 2 },
+  chipFill: { flex: 1, alignItems: 'center', paddingHorizontal: 0 },
+  chipThird: { flexBasis: '30%', flexGrow: 1, alignItems: 'center', paddingHorizontal: 0 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.md, marginBottom: Spacing.xs },
+  labelInRow: { marginTop: 0, marginBottom: 0 },
+  inlineAction: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs, paddingLeft: Spacing.md },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md, marginTop: Spacing.md },
   switchLabel: { ...T.bodySmall, color: c.text, flex: 1 },
   hint: { ...T.caption, color: c.warning, marginTop: Spacing.md },
@@ -675,10 +673,11 @@ const makeStyles = (c: Palette) => {
   secondaryButton: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.md },
   secondaryText: { ...T.bodySmall, color: c.primary, fontWeight: '600' },
 
+  skipRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, marginTop: Spacing.sm, flexWrap: 'wrap' },
   testLink: { alignItems: 'center', paddingVertical: Spacing.md },
   testLinkText: { ...T.bodySmall, color: c.textMuted, textDecorationLine: 'underline' },
 
-  bottomBar: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32, marginTop: Spacing.lg },
-  bottomButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: c.bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.border },
+  headerActions: { position: 'absolute', top: -Spacing.sm, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between' },
+  headerButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.bgCard + 'cc', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.border },
 });
 };

@@ -1,44 +1,43 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { useI18n } from '@/modules/i18n';
 import { getUserProfileManager } from '@/modules/user-profile';
-import { getNotificationService } from '@/modules/notifications';
-import { getSoundManager } from '@/modules/sound-manager';
-import { getLightController } from '@/modules/light-controller';
-import * as Linking from 'expo-linking';
+import { Screen, Card, Row, ThemedSwitch, ThemePicker } from '@/components/Screen';
+import { makeTypography, Spacing, Radius, useThemedStyles, type Palette } from '@/theme';
+import type { RootStackParamList } from '@/types';
+import { SmartAlarm } from '../../modules/smart-alarm';
+
+const LOCALES = [
+  { code: 'fr', label: 'FR' },
+  { code: 'en', label: 'EN' },
+] as const;
 
 export function SettingsScreen() {
-  const navigation = useNavigation();
-  const { t, tCommon, tSettings, tAlarm, tNotifications, tSounds, tProfile, currentLocale, changeLocale } = useI18n();
-  
-  const [profile, setProfile] = useState<any>(null);
-  const [notifPrefs, setNotifPrefs] = useState<any>({});
-  const [soundPrefs, setSoundPrefs] = useState<any>({});
-  const [lightPrefs, setLightPrefs] = useState<any>({});
-  const [version, setVersion] = useState('1.0.0-dev');
-  const [loading, setLoading] = useState(true);
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const { tCommon, tSettings, tSounds, tProfile, currentLocale, changeLocale } = useI18n();
+  const styles = useThemedStyles(makeStyles);
+
+  const [version, setVersion] = useState('');
+  const [upcomingNotif, setUpcomingNotif] = useState(true);
 
   useEffect(() => {
-    const loadData = async () => {
-      const profileManager = getUserProfileManager();
-      const notifService = getNotificationService();
-      const soundManager = getSoundManager();
-      const lightController = getLightController();
-      
-      setProfile(profileManager.getProfile());
-      setNotifPrefs(notifService.getPreferences());
-      setSoundPrefs(soundManager.getConfig());
-      setLightPrefs(lightController.getConfig());
-      setLoading(false);
-    };
-    loadData();
+    SmartAlarm.getAppVersion().then(setVersion).catch(() => {});
+    SmartAlarm.getAutoStatus()
+      .then(s => setUpcomingNotif(s.upcomingNotif))
+      .catch(() => {});
   }, []);
 
-  const handleLocaleChange = useCallback(async (locale: string) => {
-    await changeLocale(locale as any);
-  }, [changeLocale]);
+  const handleToggleUpcoming = useCallback(async (value: boolean) => {
+    setUpcomingNotif(value);
+    try {
+      const s = await SmartAlarm.setUpcomingNotification(value);
+      setUpcomingNotif(s.upcomingNotif);
+    } catch (e) {
+      setUpcomingNotif(!value);
+    }
+  }, []);
 
   const handleExportData = useCallback(async () => {
     try {
@@ -51,316 +50,85 @@ export function SettingsScreen() {
     }
   }, []);
 
-  const handleDeleteHistory = useCallback(async () => {
+  const confirmClear = useCallback((what: string) => {
     Alert.alert(
       tCommon('confirm'),
-      tSettings('deleteHistory') + ' ?',
+      what + ' ?',
       [
         { text: tCommon('cancel'), style: 'cancel' },
-        { 
-          text: tCommon('delete'), 
-          style: 'destructive', 
+        {
+          text: tCommon('delete'),
+          style: 'destructive',
           onPress: async () => {
-            const profileManager = getUserProfileManager();
-            await profileManager.clearAllData();
-            setProfile(profileManager.getProfile());
+            await getUserProfileManager().clearAllData();
             Alert.alert(tCommon('ok'), tCommon('done'));
-          }
-        }
+          },
+        },
       ]
     );
-  }, []);
-
-  const handleClearAll = useCallback(async () => {
-    Alert.alert(
-      tCommon('confirm'),
-      tProfile('clearAllData') + ' ?',
-      [
-        { text: tCommon('cancel'), style: 'cancel' },
-        { 
-          text: tCommon('delete'), 
-          style: 'destructive', 
-          onPress: async () => {
-            const profileManager = getUserProfileManager();
-            await profileManager.clearAllData();
-            setProfile(profileManager.getProfile());
-            Alert.alert(tCommon('ok'), tCommon('done'));
-          }
-        }
-      ]
-    );
-  }, []);
-
-  const handleToggleNotif = useCallback(async (key: string, value: boolean) => {
-    const notifService = getNotificationService();
-    await notifService.updatePreferences({ [key]: value });
-    setNotifPrefs(notifService.getPreferences());
-  }, []);
-
-  const handleToggleSound = useCallback(async (key: string, value: any) => {
-    const soundManager = getSoundManager();
-    soundManager.updateConfig({ [key]: value });
-    setSoundPrefs(soundManager.getConfig());
-  }, []);
-
-  const handleToggleLight = useCallback(async (key: string, value: any) => {
-    const lightController = getLightController();
-    lightController.updateConfig({ [key]: value });
-    setLightPrefs(lightController.getConfig());
   }, []);
 
   const handleOpenGithub = useCallback(() => {
     Linking.openURL('https://github.com/poirouxmartin/smart_clock');
   }, []);
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <View style={styles.loading}>
-          <Text style={styles.loadingText}>{tCommon('loading')}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const locales = [
-    { code: 'fr', name: 'Français' },
-    { code: 'en', name: 'English' },
-    { code: 'es', name: 'Español' },
-    { code: 'de', name: 'Deutsch' },
-  ];
-
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{tSettings('title')}</Text>
+    <Screen title={tSettings('title')} icon="settings-outline">
+      <Card title={tSettings('appearance')} icon="color-palette-outline">
+        <ThemePicker />
+        <Text style={styles.label}>{tSettings('language')}</Text>
+        <View style={styles.chipRow}>
+          {LOCALES.map(l => {
+            const active = l.code === currentLocale;
+            return (
+              <TouchableOpacity
+                key={l.code}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => changeLocale(l.code)}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{l.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
+      </Card>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{tSettings('general')}</Text>
-          <TouchableOpacity style={styles.row} onPress={() => {}}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSettings('language')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.itemValue}>{locales.find(l => l.code === currentLocale)?.name || currentLocale}</Text>
-              <Text style={styles.actionText}>▶</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row} onPress={() => {}}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSettings('theme')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.itemValue}>{tSettings('system')}</Text>
-              <Text style={styles.actionText}>▶</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+      <Card title={tSettings('alarm')} icon="alarm-outline">
+        <Row
+          label={tSettings('upcomingNotif')}
+          right={<ThemedSwitch value={upcomingNotif} onValueChange={handleToggleUpcoming} />}
+        />
+        <Text style={styles.caption}>{tSettings('upcomingNotifHint')}</Text>
+      </Card>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{tSettings('alarm')}</Text>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tAlarm('fallbackAlarm')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Switch
-                value={true}
-                onValueChange={() => {}}
-                trackColor={{ false: '#1e293b', true: '#0ea5e9' }}
-                thumbColor="#fff"
-              />
-            </View>
-          </TouchableOpacity>
-        </View>
+      <Card title={tSettings('soundsLights')} icon="musical-notes-outline">
+        <Row label={tSounds('customSounds')} onPress={() => navigation.navigate('CustomSounds')} />
+        <Row label={tSettings('lightIntegration')} onPress={() => navigation.navigate('Lights')} />
+      </Card>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{tSettings('soundsLights')}</Text>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSounds('natureSounds')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Switch
-                value={soundPrefs.preloadSounds ?? true}
-                onValueChange={(v) => handleToggleSound('preloadSounds', v)}
-                trackColor={{ false: '#1e293b', true: '#0ea5e9' }}
-                thumbColor="#fff"
-              />
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('CustomSounds')}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSounds('customSounds')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.actionText}>▶</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Lights')}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSettings('lightIntegration')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.actionText}>▶</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row} onPress={() => {}}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSettings('fadeIn')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.itemValue}>{Math.round((soundPrefs.fadeInDuration ?? 30000) / 60000)} min</Text>
-              <Text style={styles.actionText}>▶</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+      <Card title={tSettings('dataPrivacy')} icon="shield-checkmark-outline">
+        <Row label={tSettings('exportData')} onPress={handleExportData} />
+        <Row label={tSettings('deleteHistory')} value={tCommon('delete')} destructive onPress={() => confirmClear(tSettings('deleteHistory'))} />
+        <Row label={tProfile('clearAllData')} value={tCommon('delete')} destructive onPress={() => confirmClear(tProfile('clearAllData'))} />
+      </Card>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{tNotifications('title')}</Text>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tNotifications('alarm')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Switch
-                value={notifPrefs.alarmEnabled ?? true}
-                onValueChange={(v) => handleToggleNotif('alarmEnabled', v)}
-                trackColor={{ false: '#1e293b', true: '#0ea5e9' }}
-                thumbColor="#fff"
-              />
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tNotifications('bedtimeReminder')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Switch
-                value={notifPrefs.bedtimeReminderEnabled ?? true}
-                onValueChange={(v) => handleToggleNotif('bedtimeReminderEnabled', v)}
-                trackColor={{ false: '#1e293b', true: '#0ea5e9' }}
-                thumbColor="#fff"
-              />
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tNotifications('windDown')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Switch
-                value={notifPrefs.windDownEnabled ?? true}
-                onValueChange={(v) => handleToggleNotif('windDownEnabled', v)}
-                trackColor={{ false: '#1e293b', true: '#0ea5e9' }}
-                thumbColor="#fff"
-              />
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tNotifications('criticalAlerts')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Switch
-                value={notifPrefs.criticalAlertsEnabled ?? true}
-                onValueChange={(v) => handleToggleNotif('criticalAlertsEnabled', v)}
-                trackColor={{ false: '#1e293b', true: '#0ea5e9' }}
-                thumbColor="#fff"
-              />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{tSettings('dataPrivacy')}</Text>
-          <TouchableOpacity style={styles.row} onPress={handleExportData}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSettings('exportData')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.actionText}>▶</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row} onPress={handleDeleteHistory}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSettings('deleteHistory')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.destructiveText}>{tCommon('delete')}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row} onPress={handleClearAll}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tProfile('clearAllData')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.destructiveText}>{tCommon('delete')}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSettings('localOnly')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Switch
-                value={true}
-                onValueChange={() => {}}
-                trackColor={{ false: '#1e293b', true: '#0ea5e9' }}
-                thumbColor="#fff"
-              />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{tSettings('about')}</Text>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSettings('version')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.itemValue}>{version}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row} onPress={handleOpenGithub}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSettings('github')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.actionText}>▶</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row} onPress={() => {}}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.itemLabel}>{tSettings('licenses')}</Text>
-            </View>
-            <View style={styles.rowRight}>
-              <Text style={styles.actionText}>▶</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      <Card title={tSettings('about')} icon="information-circle-outline">
+        <Row label={tSettings('version')} value={version} />
+        <Row label={tSettings('github')} onPress={handleOpenGithub} />
+      </Card>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0e1a' },
-  content: { padding: 20, paddingBottom: 40 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#8b9cb3', fontSize: 16 },
-  header: { marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: '700', color: '#fff' },
-  section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 14, color: '#8b9cb3', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1e293b' },
-  rowLeft: { flex: 1 },
-  rowRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  itemLabel: { fontSize: 16, color: '#e2e8f0' },
-  itemValue: { fontSize: 15, color: '#8b9cb3' },
-  actionText: { fontSize: 16, color: '#64748b' },
-  destructiveText: { fontSize: 15, color: '#ef4444' },
-});
+const makeStyles = (c: Palette) => {
+  const T = makeTypography(c);
+  return StyleSheet.create({
+    label: { ...T.caption, marginTop: Spacing.xl, marginBottom: Spacing.sm },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+    chip: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.full, borderWidth: 1, borderColor: c.borderLight },
+    chipActive: { backgroundColor: c.primary, borderColor: c.primary },
+    chipText: { ...T.bodySmall, color: c.textSecondary },
+    chipTextActive: { color: c.onPrimary, fontWeight: '600' },
+    caption: { ...T.caption, color: c.textMuted, marginTop: Spacing.sm },
+  });
+};
