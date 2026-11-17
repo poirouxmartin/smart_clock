@@ -30,8 +30,11 @@ object AutoManager {
     private const val MIN_ONSET_LEAD_MS = 20 * 60_000L
     private const val FALSE_ONSET_MS = 45 * 60_000L
     private const val EARLY_WAKE_MS = 90 * 60_000L
+    /** A night never aims at an alarm further away than this (a skipped alarm leaves the next one ~1 day later). */
+    internal const val MAX_ONSET_LEAD_MS = 16 * 60 * 60_000L
 
     fun configure(ctx: Context, enabled: Boolean, hour: Int, minute: Int, daysMask: Int, windowMinutes: Int) {
+        val wasEnabled = AutoStore.enabled(ctx)
         AutoStore.save(
             ctx,
             enabled = enabled,
@@ -41,6 +44,7 @@ object AutoManager {
             windowMinutes = windowMinutes,
         )
         if (enabled) {
+            if (!wasEnabled) AutoStore.save(ctx, skippedTargetMs = 0L)
             rearm(ctx)
             return
         }
@@ -51,10 +55,19 @@ object AutoManager {
             AlarmScheduler.cancel(ctx)
             DawnScheduler.cancel(ctx)
         }
+        UpcomingAlarm.refresh(ctx)
     }
 
     /** Re-arms the automatic target. A running or ringing session already owns the alarm. */
     fun rearm(ctx: Context) {
+        try {
+            rearmInternal(ctx)
+        } finally {
+            UpcomingAlarm.refresh(ctx)
+        }
+    }
+
+    private fun rearmInternal(ctx: Context) {
         if (!AutoStore.enabled(ctx)) return
         val now = System.currentTimeMillis()
         val state = AlarmStore.state(ctx)
@@ -62,12 +75,26 @@ object AutoManager {
             scheduleNext(ctx, now)
             return
         }
-        val target = AutoSchedule.nextTargetMs(
+        var skipped = AutoStore.skippedTargetMs(ctx)
+        if (skipped in 1..now) {
+            skipped = 0L
+            AutoStore.save(ctx, skippedTargetMs = 0L)
+        }
+        val target = AutoSchedule.nextTargetSkipping(
             now,
             AutoStore.hour(ctx),
             AutoStore.minute(ctx),
             AutoStore.daysMask(ctx),
-        ) ?: return
+            skipped,
+        )
+        if (target == null) {
+            // No enabled day: nothing armed, nothing to show.
+            AutoStore.save(ctx, currentTargetMs = 0L)
+            AlarmScheduler.cancel(ctx)
+            DawnScheduler.cancel(ctx)
+            cancelProbe(ctx)
+            return
+        }
         AutoStore.save(ctx, currentTargetMs = target)
         AutoStore.clearProbes(ctx)
         AlarmScheduler.scheduleFallback(ctx, target)
@@ -109,7 +136,7 @@ object AutoManager {
         } else if (state != AlarmStore.RINGING) {
             val target = AutoStore.currentTargetMs(ctx)
             val onset = SleepOnsetDetector.onset(probes, minuteOf, usual)
-            if (onset != null && target - now > MIN_ONSET_LEAD_MS) {
+            if (onset != null && target - now > MIN_ONSET_LEAD_MS && target - now <= MAX_ONSET_LEAD_MS) {
                 AutoStore.addOnsetMinute(ctx, AutoSchedule.minuteOfDay(onset))
                 NightSession.start(
                     ctx,
@@ -185,6 +212,8 @@ object AutoManager {
             set(Calendar.MILLISECOND, 0)
         }
         if (cal.timeInMillis <= now) cal.add(Calendar.DAY_OF_YEAR, 1)
+        // After a skipped alarm the target is a day further: probe the evening before it, not tonight.
+        while (target - cal.timeInMillis > MAX_ONSET_LEAD_MS) cal.add(Calendar.DAY_OF_YEAR, 1)
         val start = cal.timeInMillis
         return if (start > target - LAST_START_BEFORE_TARGET_MS) null else start
     }

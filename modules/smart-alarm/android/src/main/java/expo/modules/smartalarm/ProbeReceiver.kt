@@ -29,6 +29,7 @@ class ProbeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             AutoManager.ACTION_PROBE -> runProbe(context, goAsync())
+            UpcomingAlarm.ACTION_SKIP -> UpcomingAlarm.skipNext(context)
             ACTION_CANCEL_ALARM -> {
                 NightSession.cancel(context)
                 NotificationManagerCompat.from(context).cancel(NightSession.NOTIF_AWAKE_ID)

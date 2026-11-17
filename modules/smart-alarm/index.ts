@@ -36,6 +36,8 @@ export type AutoStatus = {
   daysMask: number;
   windowMinutes: number;
   currentTargetMs: number;
+  skippedTargetMs: number;
+  upcomingNotif: boolean;
   usualBedMinute: number;
   apiConfidence: number;
 };
@@ -82,6 +84,9 @@ type SmartAlarmNative = {
   markSummarySeen(): Promise<void>;
   configureAuto(cfg: AutoConfig): Promise<AutoStatus>;
   getAutoStatus(): Promise<AutoStatus>;
+  skipNextAuto(): Promise<AutoStatus>;
+  unskipAuto(): Promise<AutoStatus>;
+  setUpcomingNotification(enabled: boolean): Promise<AutoStatus>;
   getWakeOptions(): Promise<WakeOptions>;
   setWakeOptions(partial: Partial<WakeOptions>): Promise<WakeOptions>;
   previewSound(id: string): Promise<void>;
@@ -104,6 +109,8 @@ const DISABLED_AUTO_STATUS: AutoStatus = {
   daysMask: 0,
   windowMinutes: 0,
   currentTargetMs: 0,
+  skippedTargetMs: 0,
+  upcomingNotif: true,
   usualBedMinute: 0,
   apiConfidence: 0,
 };
@@ -151,6 +158,9 @@ const fallback: SmartAlarmNative = {
   markSummarySeen: async () => {},
   configureAuto: async () => ({ ...DISABLED_AUTO_STATUS }),
   getAutoStatus: async () => ({ ...DISABLED_AUTO_STATUS }),
+  skipNextAuto: async () => ({ ...DISABLED_AUTO_STATUS }),
+  unskipAuto: async () => ({ ...DISABLED_AUTO_STATUS }),
+  setUpcomingNotification: async () => ({ ...DISABLED_AUTO_STATUS }),
   getWakeOptions: async () => ({ ...DEFAULT_WAKE_OPTIONS }),
   setWakeOptions: async () => ({ ...DEFAULT_WAKE_OPTIONS }),
   previewSound: async () => {},
@@ -189,6 +199,9 @@ export const testRing = (delaySeconds: number) => native.testRing(delaySeconds);
 export const markSummarySeen = () => native.markSummarySeen();
 export const configureAuto = (cfg: AutoConfig) => native.configureAuto(cfg);
 export const getAutoStatus = () => native.getAutoStatus();
+export const skipNextAuto = () => native.skipNextAuto();
+export const unskipAuto = () => native.unskipAuto();
+export const setUpcomingNotification = (enabled: boolean) => native.setUpcomingNotification(enabled);
 export const getWakeOptions = () => native.getWakeOptions();
 export const setWakeOptions = (partial: Partial<WakeOptions>) => native.setWakeOptions(partial);
 export const previewSound = (id: string) => native.previewSound(id);
@@ -233,6 +246,9 @@ export const SmartAlarm = {
   markSummarySeen,
   configureAuto,
   getAutoStatus,
+  skipNextAuto,
+  unskipAuto,
+  setUpcomingNotification,
   getWakeOptions,
   setWakeOptions,
   previewSound,

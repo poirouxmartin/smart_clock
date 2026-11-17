@@ -37,6 +37,19 @@ object AutoSchedule {
         return null
     }
 
+    /** Like [nextTargetMs] but returns the occurrence after skippedMs when the next one is the skipped one. */
+    fun nextTargetSkipping(
+        nowMs: Long,
+        hour: Int,
+        minute: Int,
+        daysMask: Int,
+        skippedMs: Long,
+        tz: TimeZone = TimeZone.getDefault(),
+    ): Long? {
+        val next = nextTargetMs(nowMs, hour, minute, daysMask, tz) ?: return null
+        return if (next == skippedMs) nextTargetMs(skippedMs, hour, minute, daysMask, tz) else next
+    }
+
     /** Minute of day (0..1439) of tMs in the given zone. */
     fun minuteOfDay(tMs: Long, tz: TimeZone = TimeZone.getDefault()): Int {
         val cal = Calendar.getInstance(tz)

@@ -64,6 +64,19 @@ class SmartAlarmModule : Module() {
         AsyncFunction("snoozeRing") { sendRingAction(AlarmScheduler.ACTION_SNOOZE) }
         AsyncFunction("configureAuto") { cfg: Map<String, Any?> -> configureAuto(cfg) }
         AsyncFunction("getAutoStatus") { AutoStore.toMap(context) }
+        AsyncFunction("skipNextAuto") {
+            UpcomingAlarm.skipNext(context)
+            AutoStore.toMap(context)
+        }
+        AsyncFunction("unskipAuto") {
+            UpcomingAlarm.unskip(context)
+            AutoStore.toMap(context)
+        }
+        AsyncFunction("setUpcomingNotification") { enabled: Boolean ->
+            AutoStore.save(context, upcomingNotif = enabled)
+            UpcomingAlarm.refresh(context)
+            AutoStore.toMap(context)
+        }
     }
 
     private fun sendRingAction(action: String) {

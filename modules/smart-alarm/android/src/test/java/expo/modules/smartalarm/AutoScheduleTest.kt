@@ -52,6 +52,28 @@ class AutoScheduleTest {
     }
 
     @Test
+    fun skipReturnsNextEnabledDay() {
+        val now = ms(2026, 10, 20, 6, 0)
+        val next = AutoSchedule.nextTargetSkipping(now, 7, 0, everyDay, ms(2026, 10, 20, 7, 0), paris)
+        assertEquals(ms(2026, 10, 21, 7, 0), next)
+    }
+
+    @Test
+    fun skipIgnoredWhenItDoesNotMatch() {
+        val now = ms(2026, 10, 20, 6, 0)
+        val next = AutoSchedule.nextTargetSkipping(now, 7, 30, everyDay, ms(2026, 10, 20, 7, 0), paris)
+        assertEquals(ms(2026, 10, 20, 7, 30), next)
+    }
+
+    @Test
+    fun skipWithSingleDayReturnsNextWeek() {
+        // Tuesday only (0x02)
+        val now = ms(2026, 10, 20, 6, 0)
+        val next = AutoSchedule.nextTargetSkipping(now, 7, 0, 0x02, ms(2026, 10, 20, 7, 0), paris)
+        assertEquals(ms(2026, 10, 27, 7, 0), next)
+    }
+
+    @Test
     fun minuteOfDayUsesZone() {
         assertEquals(7 * 60 + 30, AutoSchedule.minuteOfDay(ms(2026, 10, 20, 7, 30), paris))
     }

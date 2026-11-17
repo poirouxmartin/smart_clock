@@ -114,6 +114,7 @@ class RingService : Service() {
             }
             AlarmScheduler.cancel(this)
             stopService(Intent(this, SleepTrackingService::class.java))
+            UpcomingAlarm.refresh(this)
         }
 
         acquireWakeLock()

@@ -22,4 +22,8 @@
     <string name="auto_tap_to_track">Sleep detected: tap to start tracking</string>
     <string name="auto_awake_text">Already awake? Your alarm is still set.</string>
     <string name="auto_cancel_alarm">Cancel alarm</string>
+    <string name="channel_upcoming">Upcoming alarm</string>
+    <string name="upcoming_title">Alarm %1$s at %2$s</string>
+    <string name="upcoming_text">Gentle wake between %1$s and %2$s</string>
+    <string name="upcoming_skip">Skip this alarm</string>
 </resources>

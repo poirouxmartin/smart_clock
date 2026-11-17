@@ -48,6 +48,7 @@ object NightSession {
             putBoolean("auto", auto)
             putLong("onsetMs", onsetMs)
         }
+        UpcomingAlarm.refresh(ctx)
         NightFile.create(ctx, sessionId, now, targetAtMs, windowMinutes)
         val exact = AlarmScheduler.scheduleFallback(ctx, targetAtMs)
         DawnScheduler.schedule(ctx, targetAtMs)

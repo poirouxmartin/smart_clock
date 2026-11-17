@@ -22,4 +22,8 @@
     <string name="auto_tap_to_track">Sommeil détecté : touche pour lancer le suivi</string>
     <string name="auto_awake_text">Déjà réveillé·e ? Ton réveil reste programmé.</string>
     <string name="auto_cancel_alarm">Annuler le réveil</string>
+    <string name="channel_upcoming">Réveil prévu</string>
+    <string name="upcoming_title">Réveil %1$s à %2$s</string>
+    <string name="upcoming_text">Réveil en douceur entre %1$s et %2$s</string>
+    <string name="upcoming_skip">Passer ce réveil</string>
 </resources>

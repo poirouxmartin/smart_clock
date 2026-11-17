@@ -30,6 +30,10 @@ object AutoStore {
 
     fun awakeNotifiedTargetMs(ctx: Context): Long = prefs(ctx).getLong("awakeNotifiedTargetMs", 0L)
 
+    fun skippedTargetMs(ctx: Context): Long = prefs(ctx).getLong("skippedTargetMs", 0L)
+
+    fun upcomingNotifEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean("upcomingNotif", true)
+
     fun apiConfidence(ctx: Context): Int = prefs(ctx).getInt("apiConfidence", -1)
 
     fun apiAtMs(ctx: Context): Long = prefs(ctx).getLong("apiAtMs", 0L)
@@ -44,6 +48,8 @@ object AutoStore {
         windowMinutes: Int? = null,
         currentTargetMs: Long? = null,
         awakeNotifiedTargetMs: Long? = null,
+        skippedTargetMs: Long? = null,
+        upcomingNotif: Boolean? = null,
     ) {
         val e = prefs(ctx).edit()
         enabled?.let { e.putBoolean("enabled", it) }
@@ -53,6 +59,8 @@ object AutoStore {
         windowMinutes?.let { e.putInt("windowMinutes", it) }
         currentTargetMs?.let { e.putLong("currentTargetMs", it) }
         awakeNotifiedTargetMs?.let { e.putLong("awakeNotifiedTargetMs", it) }
+        skippedTargetMs?.let { e.putLong("skippedTargetMs", it) }
+        upcomingNotif?.let { e.putBoolean("upcomingNotif", it) }
         e.apply()
     }
 
@@ -120,6 +128,8 @@ object AutoStore {
             "daysMask" to daysMask(ctx),
             "windowMinutes" to windowMinutes(ctx),
             "currentTargetMs" to currentTargetMs(ctx),
+            "skippedTargetMs" to skippedTargetMs(ctx),
+            "upcomingNotif" to upcomingNotifEnabled(ctx),
             "usualBedMinute" to usual,
             "lastProbeAtMs" to last?.tMs,
             "lastProbeScore" to last?.let { SleepOnsetDetector.score(it, AutoSchedule.minuteOfDay(it.tMs), usual) },
