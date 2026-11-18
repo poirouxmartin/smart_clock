@@ -524,10 +524,10 @@ export function HomeScreen() {
 
           {nightInProgress ? (
             <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('SleepMode')}>
-              <LinearGradient colors={asGradient(c.button)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryGradient}>
+              <View style={styles.primaryGradient}>
                 <Ionicons name="moon" size={22} color={c.onPrimary} />
                 <Text style={styles.primaryText}>{tn('resume')}</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           ) : settings.auto ? (
             <TouchableOpacity style={styles.startNowButton} onPress={onStart} disabled={busy}>
@@ -536,10 +536,10 @@ export function HomeScreen() {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={styles.primaryButton} onPress={onStart} disabled={busy}>
-              <LinearGradient colors={asGradient(c.button)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryGradient}>
+              <View style={styles.primaryGradient}>
                 <Ionicons name="moon" size={22} color={c.onPrimary} />
                 <Text style={styles.primaryText}>{tn('start')}</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           )}
 
@@ -665,7 +665,7 @@ const makeStyles = (c: Palette) => {
   fixButton: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.full, backgroundColor: c.bgSurface },
   fixButtonText: { ...T.bodySmall, color: c.primaryLight, fontWeight: '600' },
 
-  primaryButton: { borderRadius: Radius.xl, overflow: 'hidden', marginBottom: Spacing.lg },
+  primaryButton: { borderRadius: Radius.xl, marginBottom: Spacing.lg, backgroundColor: c.button[0] },
   primaryGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: Spacing.md },
   primaryText: { ...T.h3, color: c.onPrimary },
 
