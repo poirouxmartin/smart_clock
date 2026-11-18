@@ -18,7 +18,9 @@ object AlarmStore {
     fun edit(ctx: Context, block: SharedPreferences.Editor.() -> Unit): Boolean {
         val editor = prefs(ctx).edit()
         editor.block()
-        return editor.commit()
+        val ok = editor.commit()
+        NightWidget.refresh(ctx)
+        return ok
     }
 
     fun state(ctx: Context): String = prefs(ctx).getString("state", IDLE) ?: IDLE

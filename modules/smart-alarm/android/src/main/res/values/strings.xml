@@ -26,4 +26,13 @@
     <string name="upcoming_title">Alarm %1$s at %2$s</string>
     <string name="upcoming_text">Gentle wake between %1$s and %2$s</string>
     <string name="upcoming_skip">Skip this alarm</string>
+    <string name="widget_label">Aube night</string>
+    <string name="widget_description">Start the night in one tap and see its status</string>
+    <string name="widget_start">Start the night</string>
+    <string name="widget_stop">Stop the night</string>
+    <string name="widget_open">Open Aube</string>
+    <string name="widget_next">Alarm at %1$s</string>
+    <string name="widget_started">Night started, alarm at %1$s</string>
+    <string name="widget_stopped">Night stopped</string>
+    <string name="widget_ringing">Alarm</string>
 </resources>

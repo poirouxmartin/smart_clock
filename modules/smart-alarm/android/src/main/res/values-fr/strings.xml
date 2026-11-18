@@ -26,4 +26,13 @@
     <string name="upcoming_title">Réveil %1$s à %2$s</string>
     <string name="upcoming_text">Réveil en douceur entre %1$s et %2$s</string>
     <string name="upcoming_skip">Passer ce réveil</string>
+    <string name="widget_label">Nuit Aube</string>
+    <string name="widget_description">Commence la nuit d’une touche et vois son état</string>
+    <string name="widget_start">Commencer la nuit</string>
+    <string name="widget_stop">Arrêter la nuit</string>
+    <string name="widget_open">Ouvrir Aube</string>
+    <string name="widget_next">Réveil à %1$s</string>
+    <string name="widget_started">Nuit commencée, réveil à %1$s</string>
+    <string name="widget_stopped">Nuit arrêtée</string>
+    <string name="widget_ringing">Réveil</string>
 </resources>

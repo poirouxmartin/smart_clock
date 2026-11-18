@@ -46,6 +46,7 @@ object AutoManager {
         if (enabled) {
             if (!wasEnabled) AutoStore.save(ctx, skippedTargetMs = 0L)
             rearm(ctx)
+            NightWidget.refresh(ctx)
             return
         }
         cancelProbe(ctx)
@@ -56,6 +57,7 @@ object AutoManager {
             DawnScheduler.cancel(ctx)
         }
         UpcomingAlarm.refresh(ctx)
+        NightWidget.refresh(ctx)
     }
 
     /** Re-arms the automatic target. A running or ringing session already owns the alarm. */
