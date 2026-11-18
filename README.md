@@ -55,6 +55,7 @@ l'affichage sur l'écran verrouillé.
   - `AutoSchedule`, `UsualBedtime` : planning quotidien et heure de coucher habituelle.
   - `DawnActivity`, `DawnCurve` : aube lumineuse (voir « Aube lumineuse »).
   - `VolumeRamp`, `NatureSound` : sons de nature et montée de volume (voir « Sons de nature »).
+- Widget d'écran d'accueil « Nuit Aube » : lancer ou arrêter la nuit en un appui, affiche l'état et l'heure de réveil.
 - `src/modules/night` : analyse de la nuit (JS) et résumés stockés en SQLite.
 - Science et limites : [docs/SCIENCE.md](docs/SCIENCE.md), justification du réveil :
   [docs/science-reveil.md](docs/science-reveil.md). État du projet :

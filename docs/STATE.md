@@ -125,6 +125,13 @@ d'animation, `constants`, `navigation/types`. Restent pour un lot suivant : dép
 inutilisées (`expo-sensors`, `expo-bluetooth`, `react-native-chart-kit`, `@shopify/flash-list`…)
 et modules encore atteints par Réglages sans effet réel (`light-controller`, `sound-manager`).
 
+## Après 1.4.4 (branche dev/poiroux/widget-nuit-1811, non publiée)
+
+- `5a7d2ad` : la notification « Arrêter le suivi » termine la nuit ; réparation de l'état « tracking » fantôme à l'ouverture, au réarmement, aux sondes et au démarrage (`AlarmPolicy.trackingRepair`).
+- `dde7ea5` : bouton principal de l'accueil en fond plein, visible pendant une nuit (« Reprendre la nuit »).
+- `d1306bb` : widget d'écran d'accueil « Nuit Aube » (3x1) pour lancer ou arrêter la nuit sans ouvrir l'appli.
+- Détails et captures : [docs/rapport-widget-nuit-1811.md](rapport-widget-nuit-1811.md).
+
 ## Limites / à valider
 
 - Pas encore validé sur une nuit réelle ni sur un appareil de test.
