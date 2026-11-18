@@ -71,6 +71,7 @@ object AutoManager {
         if (!AutoStore.enabled(ctx)) return
         val now = System.currentTimeMillis()
         recoverStaleRinging(ctx, now)
+        NightSession.repair(ctx, now)
         val state = AlarmStore.state(ctx)
         if (state == AlarmStore.TRACKING || state == AlarmStore.RINGING) {
             scheduleNext(ctx, now)
@@ -145,6 +146,7 @@ object AutoManager {
         val usual = AutoStore.usualBedMinute(ctx)
         val probes = AutoStore.probes(ctx)
 
+        NightSession.repair(ctx, now)
         val state = AlarmStore.state(ctx)
         if (state == AlarmStore.TRACKING) {
             if (NightSession.isAuto(ctx)) {

@@ -43,6 +43,10 @@ class SleepTrackingService : Service(), SensorEventListener {
         private const val EXTRA_WAKE_MS = 60 * 60_000L
         private const val MANUAL_SLEEP_LATENCY_MS = 15 * 60_000L
 
+        /** True while this process holds a sensing service; false after a kill or a refused start. */
+        @Volatile
+        var running: Boolean = false
+
         @Volatile
         var epochCount: Int = 0
 
@@ -90,6 +94,8 @@ class SleepTrackingService : Service(), SensorEventListener {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP_TRACKING) {
+            // End the night like the app does; stopping only the service left a ghost TRACKING state.
+            NightSession.cancel(applicationContext)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -123,6 +129,7 @@ class SleepTrackingService : Service(), SensorEventListener {
             }
 
         startSensing()
+        running = true
         // Sticky: if the system kills us overnight it restarts the service, which resumes from the night file.
         return START_STICKY
     }
@@ -271,6 +278,7 @@ class SleepTrackingService : Service(), SensorEventListener {
     }
 
     override fun onDestroy() {
+        running = false
         val handler = sensorHandler
         val thread = sensorThread
         if (handler != null && thread != null) {

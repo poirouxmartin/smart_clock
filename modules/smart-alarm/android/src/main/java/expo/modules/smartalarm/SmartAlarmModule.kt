@@ -116,6 +116,8 @@ class SmartAlarmModule : Module() {
 
     private fun getStatus(): Map<String, Any?> {
         val ctx = context
+        // Opening the app heals a ghost night, so Home never hides "Commencer la nuit maintenant" for nothing.
+        NightSession.repair(ctx)
         return mapOf(
             "state" to AlarmStore.state(ctx),
             "sessionId" to AlarmStore.sessionId(ctx),
@@ -125,6 +127,7 @@ class SmartAlarmModule : Module() {
             "firedAtMs" to AlarmStore.firedAtMs(ctx),
             "firedReason" to AlarmStore.firedReason(ctx),
             "epochCount" to SleepTrackingService.epochCount,
+            "trackingAlive" to SleepTrackingService.running,
             "lastActivity" to SleepTrackingService.lastActivity,
             "lastSamples" to SleepTrackingService.lastSamples,
             "summarySeen" to AlarmStore.summarySeen(ctx),

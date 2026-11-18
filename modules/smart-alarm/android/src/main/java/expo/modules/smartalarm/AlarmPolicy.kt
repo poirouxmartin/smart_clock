@@ -57,6 +57,30 @@ object AlarmPolicy {
         return RearmPlan.Arm(target, clearProbes = target != currentTargetMs)
     }
 
+    /** A night found this long after its target with no ring is over. */
+    const val MAX_LATE_MS = 30 * 60_000L
+
+    enum class TrackingRepair { NONE, RESTART_SERVICE, RING_LATE, CLOSE }
+
+    /**
+     * Repairs a ghost night: state TRACKING with no live tracking service (service refused in the
+     * background, killed, or stopped from its notification). Left alone, it hides "Commencer la
+     * nuit maintenant", blocks automatic nights and records nothing (night of 17-18/11/2026).
+     */
+    fun trackingRepair(
+        state: String,
+        targetAtMs: Long,
+        nowMs: Long,
+        serviceAlive: Boolean,
+        afterBoot: Boolean = false,
+    ): TrackingRepair {
+        if (state != AlarmStore.TRACKING) return TrackingRepair.NONE
+        if (targetAtMs > nowMs) return if (serviceAlive) TrackingRepair.NONE else TrackingRepair.RESTART_SERVICE
+        if (nowMs - targetAtMs >= MAX_LATE_MS) return TrackingRepair.CLOSE
+        // Within the grace period the fallback alarm rings, except after a reboot that dropped it.
+        return if (afterBoot) TrackingRepair.RING_LATE else TrackingRepair.NONE
+    }
+
     internal fun searchFromMs(nowMs: Long, state: String, firedAtMs: Long, currentTargetMs: Long): Long {
         val consumed = state == AlarmStore.DONE &&
             firedAtMs > 0L &&

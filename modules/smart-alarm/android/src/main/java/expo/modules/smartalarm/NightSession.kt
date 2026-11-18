@@ -77,6 +77,44 @@ object NightSession {
         AutoManager.rearm(ctx)
     }
 
+    /**
+     * Repairs a ghost night (TRACKING without a live service), see [AlarmPolicy.trackingRepair].
+     * [afterBoot]: the process just restarted after a reboot or an update, so alarms may be gone.
+     */
+    fun repair(ctx: Context, now: Long = System.currentTimeMillis(), afterBoot: Boolean = false) {
+        val target = AlarmStore.targetAtMs(ctx)
+        val plan = AlarmPolicy.trackingRepair(
+            AlarmStore.state(ctx),
+            target,
+            now,
+            SleepTrackingService.running,
+            afterBoot,
+        )
+        when (plan) {
+            AlarmPolicy.TrackingRepair.NONE -> return
+            AlarmPolicy.TrackingRepair.RESTART_SERVICE -> {
+                Log.w(TAG, "Night in progress without tracking service: restarting it")
+                AlarmScheduler.scheduleFallback(ctx, target)
+                DawnScheduler.schedule(ctx, target)
+                try {
+                    ContextCompat.startForegroundService(ctx, Intent(ctx, SleepTrackingService::class.java))
+                } catch (e: Exception) {
+                    Log.w(TAG, "Cannot restart SleepTrackingService, fallback alarm stays armed", e)
+                    postTapNotification(ctx)
+                }
+            }
+            AlarmPolicy.TrackingRepair.RING_LATE -> AlarmReceiver.startRing(ctx, "fallback")
+            AlarmPolicy.TrackingRepair.CLOSE -> {
+                Log.w(TAG, "Closing a ghost night long past its target")
+                AlarmStore.sessionId(ctx)?.let { sid ->
+                    // Keep whatever was recorded so the night still shows in Stats.
+                    NightFile.finalize(ctx, sid, NightFile.loadEpochs(ctx, sid), target, 0L, "")
+                }
+                AlarmStore.edit(ctx) { putString("state", AlarmStore.DONE) }
+            }
+        }
+    }
+
     fun onsetMs(ctx: Context): Long = prefs(ctx).getLong("onsetMs", 0L)
 
     fun isAuto(ctx: Context): Boolean = prefs(ctx).getBoolean("auto", false)
