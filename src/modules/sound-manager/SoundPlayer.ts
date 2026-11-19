@@ -90,7 +90,7 @@ export class SoundPlayer {
 
   async play(config: PlaybackConfig): Promise<void> {
     if (!this.player) {
-      throw new Error('Aucun son chargé');
+      throw new Error('No sound loaded');
     }
 
     this.currentConfig = { ...config };

@@ -80,7 +80,7 @@ export class SoundManager {
   async play(soundId: string, options: Partial<PlaybackConfig> = {}): Promise<void> {
     const asset = this.soundAssets.get(soundId);
     if (!asset) {
-      throw new Error(`Son non trouvé: ${soundId}`);
+      throw new Error(`Sound not found: ${soundId}`);
     }
 
     await this.player.loadSound(asset);
