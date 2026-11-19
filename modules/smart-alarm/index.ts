@@ -95,8 +95,6 @@ type SmartAlarmNative = {
   getAppVersion(): Promise<string>;
   getVersionInfo(): Promise<VersionInfo>;
   downloadAndInstallUpdate(url: string, expectedVersion: string): Promise<string>;
-  scheduleUpdateCheck(): Promise<void>;
-  consumeUpdateOpen(): Promise<boolean>;
   getRingState(): Promise<RingState>;
   stopRing(): Promise<void>;
   snoozeRing(): Promise<void>;
@@ -171,8 +169,6 @@ const fallback: SmartAlarmNative = {
   getAppVersion: async () => '?',
   getVersionInfo: async () => ({ versionName: '0.0.0', versionCode: 0, releasesApiUrl: '', apkUrlPrefix: '' }),
   downloadAndInstallUpdate: async () => 'bad_url',
-  scheduleUpdateCheck: async () => {},
-  consumeUpdateOpen: async () => false,
   getRingState: async () => ({ ringing: false, reason: '', snoozeUntilMs: 0 }),
   stopRing: async () => {},
   snoozeRing: async () => {},
@@ -232,8 +228,6 @@ export interface VersionInfo {
 export const getVersionInfo = () => native.getVersionInfo();
 export const downloadAndInstallUpdate = (url: string, expectedVersion: string) =>
   native.downloadAndInstallUpdate(url, expectedVersion) as Promise<UpdateInstallResult>;
-export const scheduleUpdateCheck = () => native.scheduleUpdateCheck();
-export const consumeUpdateOpen = () => native.consumeUpdateOpen();
 
 export const isNativeAvailable = native !== fallback;
 
@@ -266,6 +260,4 @@ export const SmartAlarm = {
   snoozeRing,
   getVersionInfo,
   downloadAndInstallUpdate,
-  scheduleUpdateCheck,
-  consumeUpdateOpen,
 };

@@ -37,8 +37,4 @@
     <string name="widget_started">Nuit commencée, réveil à %1$s</string>
     <string name="widget_stopped">Nuit arrêtée</string>
     <string name="widget_ringing">Réveil</string>
-    <string name="channel_updates">Mises à jour de l\'appli</string>
-    <string name="channel_updates_desc">Te prévient quand une nouvelle version d\'Aube est disponible</string>
-    <string name="update_notif_title">Mise à jour disponible : Aube %1$s</string>
-    <string name="update_notif_text">Touche pour installer la nouvelle version</string>
 </resources>
