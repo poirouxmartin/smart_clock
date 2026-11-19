@@ -1,34 +1,34 @@
-# Licence des sons de la nature
+# Nature sounds licence
 
-Les six sons d'ambiance utilisés par Aube (réveil) sont **synthétisés de façon procédurale** par `scripts/generate_nature_sounds.py`. Aucun échantillon, aucun enregistrement tiers n'est utilisé.
+The six ambient sounds used by Aube (wake-up) are **procedurally synthesised** by `scripts/generate_nature_sounds.py`. No sample and no third-party recording is used.
 
-Ce sont des œuvres originales du projet, publiées sous **CC0 1.0 Universal** (domaine public) : https://creativecommons.org/publicdomain/zero/1.0/
+These are original works of the project, released under **CC0 1.0 Universal** (public domain): https://creativecommons.org/publicdomain/zero/1.0/
 
-Usage commercial autorisé, sans attribution requise.
+Commercial use allowed, no attribution required.
 
-## Fichiers
+## Files
 
-Emplacement : `modules/smart-alarm/android/src/main/res/raw/`
+Location: `modules/smart-alarm/android/src/main/res/raw/`
 
-| Identifiant (`sound`) | Fichier | Description |
+| Identifier (`sound`) | File | Description |
 |---|---|---|
-| `birds` | `nature_birds.ogg` | Ambiance d'oiseaux (boucle de 60 s) |
-| `waves` | `nature_waves.ogg` | Bruit de vagues (boucle de 60 s) |
-| `forest` | `nature_forest.ogg` | Ambiance de forêt (boucle de 60 s) |
-| `rain` | `nature_rain.ogg` | Bruit de pluie (boucle de 60 s) |
-| `stream` | `nature_stream.ogg` | Bruit de ruisseau (boucle de 60 s) |
-| `storm` | `nature_storm.ogg` | Pluie et tonnerre lointain (boucle de 60 s, ajouté le 15/11/2026) |
+| `birds` | `nature_birds.ogg` | Birdsong ambience (60 s loop) |
+| `waves` | `nature_waves.ogg` | Wave noise (60 s loop) |
+| `forest` | `nature_forest.ogg` | Forest ambience (60 s loop) |
+| `rain` | `nature_rain.ogg` | Rain noise (60 s loop) |
+| `stream` | `nature_stream.ogg` | Stream noise (60 s loop) |
+| `storm` | `nature_storm.ogg` | Rain and distant thunder (60 s loop, added on 15/11/2026) |
 
-Un seul son se régénère avec `--only storm` (les autres fichiers restent identiques).
+Only one sound is regenerated with `--only storm` (the other files stay identical).
 
-Chaque fichier est une boucle sans couture de 60 secondes.
+Each file is a seamless 60-second loop.
 
-## Régénérer les sons
+## Regenerating the sounds
 
 ```
 python scripts/generate_nature_sounds.py modules/smart-alarm/android/src/main/res/raw --seconds 60
 ```
 
-Prérequis :
-- Python avec `numpy` et `scipy`
-- `ffmpeg` compilé avec `libvorbis` (encodage OGG)
+Requirements:
+- Python with `numpy` and `scipy`
+- `ffmpeg` built with `libvorbis` (OGG encoding)
