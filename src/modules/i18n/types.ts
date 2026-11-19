@@ -25,8 +25,24 @@ export const SUPPORTED_LOCALES: Record<SupportedLocale, LocaleConfig> = {
   zh: { code: 'zh', name: 'Chinese', nativeName: '中文', rtl: false, dateFormat: 'yyyy/MM/dd', timeFormat: 'HH:mm', firstDayOfWeek: 1 },
 };
 
-export const DEFAULT_LOCALE: SupportedLocale = 'fr';
+export const DEFAULT_LOCALE: SupportedLocale = 'en';
 export const FALLBACK_LOCALE: SupportedLocale = 'en';
+
+/** Locales that ship a translation; any other device language falls back to English. */
+export const TRANSLATED_LOCALES: readonly SupportedLocale[] = ['en', 'fr'];
+
+const isTranslated = (code: string | null | undefined): code is SupportedLocale =>
+  !!code && (TRANSLATED_LOCALES as readonly string[]).includes(code);
+
+/**
+ * Picks the UI language: the one chosen in Settings, else the first translated language in the
+ * device's preference list (language codes, most preferred first), else English.
+ */
+export function resolveLocale(saved: string | null, deviceLanguages: readonly string[]): SupportedLocale {
+  if (isTranslated(saved)) return saved;
+  const device = deviceLanguages.map(l => l.toLowerCase()).find(isTranslated);
+  return device ?? DEFAULT_LOCALE;
+}
 
 export type TranslationNamespace = 
   | 'common' 

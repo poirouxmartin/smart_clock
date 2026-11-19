@@ -1,7 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import * as Localization from 'expo-localization';
-import { SupportedLocale, LocaleConfig, DEFAULT_LOCALE, FALLBACK_LOCALE, SUPPORTED_LOCALES, TranslationResources } from './types';
+import { SupportedLocale, LocaleConfig, DEFAULT_LOCALE, FALLBACK_LOCALE, SUPPORTED_LOCALES, TranslationResources, resolveLocale } from './types';
 import { fr } from './locales/fr';
 import { en } from './locales/en';
 
@@ -18,9 +18,8 @@ class I18nService {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    const deviceLocale = this.getDeviceLocale();
     const savedLocale = await this.getSavedLocale();
-    const initialLocale = savedLocale || deviceLocale || DEFAULT_LOCALE;
+    const initialLocale = resolveLocale(savedLocale, this.getDeviceLanguages());
 
     await i18n
       .use(initReactI18next)
@@ -44,27 +43,16 @@ class I18nService {
     console.log('[I18nService] Initialized with locale:', this.currentLocale);
   }
 
-  private getDeviceLocale(): SupportedLocale | null {
+  /** Device language codes, most preferred first (e.g. ['fr', 'en']). */
+  private getDeviceLanguages(): string[] {
     try {
-      const locales = Localization.getLocales();
-      if (locales.length > 0) {
-        const langCode = locales[0].languageCode?.toLowerCase();
-        if (langCode && SUPPORTED_LOCALES[langCode as SupportedLocale]) {
-          return langCode as SupportedLocale;
-        }
-        
-        const regionCode = locales[0].regionCode?.toLowerCase();
-        if (regionCode) {
-          const fullCode = `${langCode}-${regionCode}`.toLowerCase();
-          if (SUPPORTED_LOCALES[fullCode as SupportedLocale]) {
-            return fullCode as SupportedLocale;
-          }
-        }
-      }
+      return Localization.getLocales()
+        .map(l => l.languageCode ?? '')
+        .filter(code => code !== '');
     } catch (e) {
       console.warn('[I18nService] Failed to get device locale:', e);
+      return [];
     }
-    return null;
   }
 
   private async getSavedLocale(): Promise<SupportedLocale | null> {
