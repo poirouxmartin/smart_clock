@@ -2,21 +2,25 @@ import type { Palette } from '@/theme';
 
 export interface UpdateBannerColors {
   background: string;
+  border: string;
   text: string;
+  accent: string;
   buttonBackground: string;
   buttonText: string;
 }
 
 /**
- * The update banner must stand out from the regular cards: solid primary background
- * (not bgCard), primary-contrast text and an inverted button.
+ * Compact bar: it must not reuse the selection colour (primary), which already means
+ * "active" on chips and buttons. The accent border and button make it noticeable instead.
  */
 export function updateBannerColors(c: Palette): UpdateBannerColors {
   return {
-    background: c.primary,
-    text: c.onPrimary,
-    buttonBackground: c.onPrimary,
-    buttonText: c.primary,
+    background: c.bgCardAlt,
+    border: c.accent,
+    text: c.text,
+    accent: c.accent,
+    buttonBackground: c.accent,
+    buttonText: c.onPrimary,
   };
 }
 

@@ -3,8 +3,8 @@ import * as path from 'path';
 
 const root = path.resolve(__dirname, '../../..');
 const files = [
-  ...['StatsScreen', 'SettingsScreen', 'CustomSoundsScreen', 'LightsScreen', 'NightSummaryScreen', 'HomeScreen'].map(n => `src/screens/${n}.tsx`),
-  ...['Screen', 'UpdateBanner', 'RingingOverlay'].map(n => `src/components/${n}.tsx`),
+  ...['StatsScreen', 'SettingsScreen', 'CustomSoundsScreen', 'LightsScreen', 'NightSummaryScreen', 'HomeScreen', 'AlarmScreen'].map(n => `src/screens/${n}.tsx`),
+  ...['Screen', 'UpdateBanner', 'RingingOverlay', 'ValueStepper', 'TimeWheelModal'].map(n => `src/components/${n}.tsx`),
 ];
 
 describe('design consistency (single themed palette)', () => {

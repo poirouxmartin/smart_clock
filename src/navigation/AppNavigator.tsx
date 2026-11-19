@@ -5,6 +5,7 @@ import { SleepModeScreen } from '@/screens/SleepModeScreen';
 import { NightSummaryScreen } from '@/screens/NightSummaryScreen';
 import { StatsScreen } from '@/screens/StatsScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
+import { AlarmScreen } from '@/screens/AlarmScreen';
 import { CustomSoundsScreen } from '@/screens/CustomSoundsScreen';
 import { LightsScreen } from '@/screens/LightsScreen';
 import type { RootStackParamList } from '@/types';
@@ -25,6 +26,7 @@ export function AppNavigator() {
       <Stack.Screen name="NightSummary" component={NightSummaryScreen} />
       <Stack.Screen name="Stats" component={StatsScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Alarm" component={AlarmScreen} />
       <Stack.Screen name="CustomSounds" component={CustomSoundsScreen} />
       <Stack.Screen name="Lights" component={LightsScreen} />
     </Stack.Navigator>

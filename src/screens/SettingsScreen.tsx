@@ -4,6 +4,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useI18n } from '@/modules/i18n';
 import { getUserProfileManager } from '@/modules/user-profile';
+import { UpdateBanner, useAvailableUpdate } from '@/components/UpdateBanner';
 import { Screen, Card, Row, ThemedSwitch, ThemePicker } from '@/components/Screen';
 import { makeTypography, Spacing, Radius, useThemedStyles, type Palette } from '@/theme';
 import type { RootStackParamList } from '@/types';
@@ -18,6 +19,7 @@ export function SettingsScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { tCommon, tSettings, tSounds, tProfile, currentLocale, changeLocale } = useI18n();
   const styles = useThemedStyles(makeStyles);
+  const upd = useAvailableUpdate();
 
   const [version, setVersion] = useState('');
   const [upcomingNotif, setUpcomingNotif] = useState(true);
@@ -74,6 +76,7 @@ export function SettingsScreen() {
 
   return (
     <Screen title={tSettings('title')} icon="settings-outline">
+      <UpdateBanner state={upd} ignoreDismiss />
       <Card title={tSettings('appearance')} icon="color-palette-outline">
         <ThemePicker />
         <Text style={styles.label}>{tSettings('language')}</Text>
