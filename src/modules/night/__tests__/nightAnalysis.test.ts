@@ -41,10 +41,10 @@ describe('analyzeNight', () => {
 
   it('detects sleep onset after a restless start and classifies movement bursts', () => {
     const activity = new Array(120).fill(0);
-    for (let i = 0; i < 20; i++) activity[i] = 35; // agitation prolongée
+    for (let i = 0; i < 20; i++) activity[i] = 35; // prolonged restlessness
     activity[50] = 2;
     activity[51] = 2;
-    activity[52] = 2; // retournements isolés
+    activity[52] = 2; // isolated turnovers
     const s = analyzeNight(makeNight(activity));
     expect(s.states.slice(0, 20).every(st => st === 'wake')).toBe(true);
     expect(s.sleepOnsetMs).toBe(T0 + 20 * MIN);

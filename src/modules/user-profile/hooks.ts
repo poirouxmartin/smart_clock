@@ -123,7 +123,7 @@ export function useSleepSessions(limit: number = 30) {
   }, [manager]);
 
   const deleteSession = useCallback(async (id: string) => {
-    await manager.getSession(id); // Vérifie existence
+    await manager.getSession(id); // Checks existence
     // Note: DatabaseService doesn't expose delete, would need to add
   }, [manager]);
 

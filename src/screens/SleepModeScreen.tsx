@@ -36,7 +36,7 @@ export function SleepModeScreen() {
       const st = await SmartAlarm.getStatus();
       setStatus(st);
       if ((st.state === 'ringing' || st.state === 'done') && st.sessionId) {
-        // reset plutôt que navigate : évite de revenir ici depuis le résumé
+        // reset rather than navigate: avoids coming back here from the summary
         navigation.reset({
           index: 1,
           routes: [{ name: 'Home' }, { name: 'NightSummary', params: { sessionId: st.sessionId } }],

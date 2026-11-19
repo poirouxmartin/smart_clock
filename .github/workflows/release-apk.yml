@@ -1,13 +1,13 @@
-# Build + publie l'APK Android release sur chaque tag v* (ex : v1.0.0).
+# Builds and publishes the release APK on every v* tag (e.g. v1.0.0).
 #
-# Signature : utilise le keystore des Secrets GitHub si configuré,
-# sinon repli automatique sur la clé debug (voir android/app/build.gradle).
-# Secrets requis pour une signature release stable (même clé à chaque build) :
+# Signing: uses the keystore from GitHub Secrets if configured,
+# otherwise falls back automatically to the debug key (see android/app/build.gradle).
+# Secrets required for a stable release signature (same key on every build):
 #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
 #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
 #
-# NOTE : ne pas lancer `npx expo prebuild --clean` sans réappliquer le bloc
-# `signingConfigs.release` de android/app/build.gradle (dossier android/ commité).
+# NOTE: do not run `npx expo prebuild --clean` without re-applying the
+# `signingConfigs.release` block of android/app/build.gradle (android/ folder is committed).
 
 name: Release APK
 

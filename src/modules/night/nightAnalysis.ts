@@ -1,12 +1,12 @@
 /**
- * Analyse pure d'une nuit enregistrée par le module natif smart-alarm.
- * Estimation à partir de l'actimétrie (mouvements), pas de phases EEG.
+ * Pure analysis of a night recorded by the smart-alarm native module.
+ * Estimate from actigraphy (movement), not EEG sleep phases.
  * Aucun import React Native : module testable sous Jest.
  */
 
 export type EpochState = 'wake' | 'light' | 'calm' | 'unknown';
 
-/** Format natif : une époque = [tMs, activity, maxDelta, samples?]. samples absent ou -1 = inconnu. */
+/** Native format: one epoch = [tMs, activity, maxDelta, samples?]. samples absent or -1 = unknown. */
 export interface NightRecord {
   sessionId: string;
   startedAtMs: number;
@@ -45,8 +45,8 @@ const WINDOW = 2;
 const ONSET_RUN = 10;
 const ONSET_SUM_MAX = ONSET_RUN * MOVE_T * 3;
 const DEFAULT_EPOCH_MS = 60000;
-const MIN_SAMPLES = 120; // ~1200 attendus à 20 Hz par époque de 60 s
-const HANDLING_EPOCHS = 10; // manipulation du téléphone au coucher / à l'alarme
+const MIN_SAMPLES = 120; // ~1200 expected at 20 Hz per 60 s epoch
+const HANDLING_EPOCHS = 10; // handling the phone at bedtime / at the alarm
 
 const samplesOf = (e: NightRecord['epochs'][number]): number => (e.length > 3 ? (e[3] as number) : -1);
 
@@ -72,7 +72,7 @@ export function analyzeNight(night: NightRecord): NightSummary {
   const endedAtMs = night.endedAtMs && night.endedAtMs > 0 ? night.endedAtMs : lastT;
   const durationMin = Math.round((endedAtMs - night.startedAtMs) / 60000);
 
-  // Classification par époque
+  // Per-epoch classification
   const unknown = night.epochs.map(e => {
     const s = samplesOf(e);
     return s >= 0 && s < MIN_SAMPLES;
@@ -97,7 +97,7 @@ export function analyzeNight(night: NightRecord): NightSummary {
     }
   }
 
-  // Début de sommeil : premier bloc de 10 époques non éveillées et peu actives
+  // Sleep onset: first block of 10 epochs that are not awake and low in activity
   let onsetIdx = -1;
   for (let k = 0; k + ONSET_RUN <= n; k++) {
     let ok = true;
@@ -125,7 +125,7 @@ export function analyzeNight(night: NightRecord): NightSummary {
   }
   const asleepMin = Math.round((asleepEpochs * epochMs) / 60000);
 
-  // Qualité du signal
+  // Signal quality
   const unknownCount = unknown.filter(Boolean).length;
   const hasKnownSamples = night.epochs.some(e => samplesOf(e) >= 0);
   let signal: NightSummary['signal'];
@@ -147,7 +147,7 @@ export function analyzeNight(night: NightRecord): NightSummary {
     signal = movedCount < 0.03 * coreCount && maxActivity < 2 ? 'low' : 'ok';
   }
 
-  // Pourcentages entiers (méthode des plus grands restes) : somme = 100
+  // Integer percentages (largest remainder method): sum = 100
   const pct = { wake: 0, light: 0, calm: 0, unknown: 0 };
   if (n > 0) {
     const counts = { wake: 0, light: 0, calm: 0, unknown: 0 };
