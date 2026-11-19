@@ -76,6 +76,8 @@ export function HomeScreen() {
   const navigation = useNavigation<HomeNav>();
   const { t, formatTime, currentLocale } = useI18n();
   const tn = (key: string, options?: Record<string, any>) => t(key, options, 'night');
+  /** "Label: value" in English, "Label : value" in French. */
+  const lv = (label: string, value: string) => t('labelValue', { label, value });
 
   const [clock, setClock] = useState('');
   const [settings, setSettings] = useState<NightSettings>(DEFAULT_SETTINGS);
@@ -328,10 +330,10 @@ export function HomeScreen() {
 
           <View style={styles.header}>
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Stats')} accessibilityLabel="stats">
+              <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Stats')} accessibilityLabel={t('statistics')}>
                 <Ionicons name="bar-chart-outline" size={20} color={c.textSecondary} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Settings')} accessibilityLabel="settings">
+              <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Settings')} accessibilityLabel={t('settings')}>
                 <Ionicons name="settings-outline" size={20} color={c.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -569,18 +571,18 @@ export function HomeScreen() {
                   {new Date(lastWake.atMs).toLocaleString(currentLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </Text>
                 <Text style={styles.diagLine}>
-                  {tn('lastWakeReason')} : {tn(WAKE_REASON_KEYS[lastWake.reason] ?? 'logReasonTest')}
+                  {lv(tn('lastWakeReason'), tn(WAKE_REASON_KEYS[lastWake.reason] ?? 'logReasonTest'))}
                 </Text>
                 <Text style={styles.diagLine}>
-                  {tn('lastWakeSound')} : {lastWake.played ? tn(SOUND_LABEL_KEYS[lastWake.played] ?? 'soundBirds') : tn('lastWakeNoSound')}
+                  {lv(tn('lastWakeSound'), lastWake.played ? tn(SOUND_LABEL_KEYS[lastWake.played] ?? 'soundBirds') : tn('lastWakeNoSound'))}
                 </Text>
-                <Text style={styles.diagLine}>{tn('lastWakeFade')} : {tn('secondsValue', { s: lastWake.rampSeconds })}</Text>
-                {lastWake.error !== '' && <Text style={styles.diagError}>{tn('lastWakeError')} : {lastWake.error}</Text>}
+                <Text style={styles.diagLine}>{lv(tn('lastWakeFade'), tn('secondsValue', { s: lastWake.rampSeconds }))}</Text>
+                {lastWake.error !== '' && <Text style={styles.diagError}>{lv(tn('lastWakeError'), lastWake.error)}</Text>}
               </>
             ) : (
               <Text style={styles.muted}>{tn('lastWakeNone')}</Text>
             )}
-            <Text style={styles.diagVersion}>{tn('appVersionLabel')} : {appVersion || lastWake?.appVersion || '?'}</Text>
+            <Text style={styles.diagVersion}>{lv(tn('appVersionLabel'), appVersion || lastWake?.appVersion || '?')}</Text>
           </View>
 
           <TouchableOpacity style={styles.testLink} onPress={onTestRing}>

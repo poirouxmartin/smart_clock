@@ -1,6 +1,10 @@
 export const fr = {
   common: {
     appName: 'Aube',
+    labelValue: '{{label}} : {{value}}',
+    confirmQuestion: '{{what}} ?',
+    withDetail: '{{text}} ({{detail}})',
+    seconds: '{{count}} s',
     ok: 'OK',
     cancel: 'Annuler',
     save: 'Enregistrer',
@@ -178,6 +182,7 @@ export const fr = {
     github: 'Code source (GitHub)',
     licenses: 'Licences open source',
     exportError: 'Erreur lors de l\'exportation',
+    exportDone: 'Enregistrer (voir console)',
   },
   notifications: {
     title: 'Notifications',
@@ -217,6 +222,7 @@ export const fr = {
     thunder: 'Orage lointain',
     addCustom: 'Ajouter un son',
     importAudio: 'Importer audio',
+    customSoundDefault: 'Son personnalisé',
     duration: 'Durée',
     loopable: 'En boucle',
     volume: 'Volume',

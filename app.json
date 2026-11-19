@@ -20,7 +20,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.poirouxmartin.smartclock",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Aube a besoin d'accéder au microphone pour analyser votre sommeil via les sons nocturnes.",
+        "NSMicrophoneUsageDescription": "Aube needs the microphone to analyse your sleep from night-time sounds.",
         "UIBackgroundModes": [
           "audio",
           "background-processing"

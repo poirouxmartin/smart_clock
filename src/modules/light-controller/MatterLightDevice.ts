@@ -176,7 +176,7 @@ export class MatterDiscoveryService extends DiscoveryService {
         if (d.deviceType === 0x0100) {
           devices.push({
             id: `matter_${d.nodeId}`,
-            name: d.name || `Matter Light ${d.nodeId}`,
+            name: d.name || `Matter ${d.nodeId}`,
             type: 'matter',
             address: d.nodeId.toString(),
             protocol: 'matter',

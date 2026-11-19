@@ -43,7 +43,7 @@ export function SettingsScreen() {
     try {
       const profileManager = getUserProfileManager();
       const json = await profileManager.exportData();
-      Alert.alert(tSettings('exportData'), tCommon('save') + ' (voir console)', [{ text: tCommon('ok') }]);
+      Alert.alert(tSettings('exportData'), tSettings('exportDone'), [{ text: tCommon('ok') }]);
       console.log('EXPORT:', json);
     } catch (e) {
       Alert.alert(tCommon('error'), tSettings('exportError'));
@@ -53,7 +53,7 @@ export function SettingsScreen() {
   const confirmClear = useCallback((what: string) => {
     Alert.alert(
       tCommon('confirm'),
-      what + ' ?',
+      tCommon('confirmQuestion', { what }),
       [
         { text: tCommon('cancel'), style: 'cancel' },
         {

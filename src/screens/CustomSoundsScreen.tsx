@@ -36,7 +36,7 @@ export function CustomSoundsScreen() {
       if (result.canceled || !result.assets[0]) return;
       
       const asset = result.assets[0];
-      const name = asset.name?.replace(/\.[^/.]+$/, '') || 'Custom Sound';
+      const name = asset.name?.replace(/\.[^/.]+$/, '') || tSounds('customSoundDefault');
       
       const soundManager = getSoundManager();
       soundManager.addCustomSound({
@@ -62,7 +62,7 @@ export function CustomSoundsScreen() {
   const removeSound = useCallback(async (soundId: string) => {
     Alert.alert(
       tCommon('confirm'),
-      tCommon('delete') + ' ?',
+      tCommon('confirmQuestion', { what: tCommon('delete') }),
       [
         { text: tCommon('cancel'), style: 'cancel' },
         { 
@@ -98,7 +98,7 @@ export function CustomSoundsScreen() {
         <TouchableOpacity style={styles.addButton} onPress={addCustomSound}>
           <Text style={styles.addButtonText}>+ {tSounds('addCustom')}</Text>
         </TouchableOpacity>
-        <Text style={styles.helpText}>{tSounds('importAudio')} (MP3, WAV, M4A)</Text>
+        <Text style={styles.helpText}>{tCommon('withDetail', { text: tSounds('importAudio'), detail: 'MP3, WAV, M4A' })}</Text>
       </Card>
 
       {customSounds.length === 0 ? (

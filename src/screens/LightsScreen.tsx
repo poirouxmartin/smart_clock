@@ -86,7 +86,7 @@ export function LightsScreen() {
   const removeDevice = useCallback(async (deviceId: string) => {
     Alert.alert(
       tCommon('confirm'),
-      tCommon('delete') + ' ?',
+      tCommon('confirmQuestion', { what: tCommon('delete') }),
       [
         { text: tCommon('cancel'), style: 'cancel' },
         { 
@@ -148,7 +148,7 @@ export function LightsScreen() {
           </View>
           
           <TouchableOpacity style={[styles.button, styles.buttonSecondary, styles.testButton]} onPress={() => testWakeUpLight(device.id)}>
-            <Text style={styles.buttonText}>{tLights('testWakeUpLight')} (10s)</Text>
+            <Text style={styles.buttonText}>{tCommon('withDetail', { text: tLights('testWakeUpLight'), detail: tCommon('seconds', { count: 10 }) })}</Text>
           </TouchableOpacity>
         </View>
       </Card>

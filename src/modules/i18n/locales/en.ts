@@ -1,6 +1,10 @@
 export const en = {
   common: {
     appName: 'Aube',
+    labelValue: '{{label}}: {{value}}',
+    confirmQuestion: '{{what}}?',
+    withDetail: '{{text}} ({{detail}})',
+    seconds: '{{count}}s',
     ok: 'OK',
     cancel: 'Cancel',
     save: 'Save',
@@ -177,6 +181,8 @@ export const en = {
     version: 'Version',
     github: 'Source Code (GitHub)',
     licenses: 'Open Source Licenses',
+    exportError: 'Export failed',
+    exportDone: 'Saved (see console)',
   },
   notifications: {
     title: 'Notifications',
@@ -216,6 +222,7 @@ export const en = {
     thunder: 'Distant Thunder',
     addCustom: 'Add Custom Sound',
     importAudio: 'Import Audio',
+    customSoundDefault: 'Custom sound',
     duration: 'Duration',
     loopable: 'Loopable',
     volume: 'Volume',
