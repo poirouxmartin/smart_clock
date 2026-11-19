@@ -64,8 +64,8 @@ object AlarmPolicy {
 
     /**
      * Repairs a ghost night: state TRACKING with no live tracking service (service refused in the
-     * background, killed, or stopped from its notification). Left alone, it hides "Commencer la
-     * nuit maintenant", blocks automatic nights and records nothing (night of 17-18/11/2026).
+     * background, killed, or stopped from its notification). Left alone, it hides "Start the
+     * night now", blocks automatic nights and records nothing (night of 17-18/11/2026).
      */
     fun trackingRepair(
         state: String,

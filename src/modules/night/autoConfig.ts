@@ -22,8 +22,8 @@ export function formatMinuteOfDay(min: number): string {
 }
 
 /**
- * Décalage calendaire (heure locale) entre `now` et `ms`, et heure HH:MM de `ms`.
- * dayOffset 0 = aujourd'hui, 1 = demain, etc. Le libellé ('demain', nom du jour) est laissé à l'i18n.
+ * Calendar offset (local time) between `now` and `ms`, and the HH:MM time of `ms`.
+ * dayOffset 0 = today, 1 = tomorrow, etc. The label ('tomorrow', day name) is left to i18n.
  */
 export function describeNextTarget(ms: number, now: number): { dayOffset: number; hhmm: string } {
   const target = new Date(ms);

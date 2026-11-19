@@ -5,7 +5,7 @@ import { analyzeNight, NightRecord, NightSummary } from './nightAnalysis';
 const LIST_LIMIT = 30;
 
 export const NightRepository = {
-  /** Importe en base les nuits terminées côté natif et renvoie les résumés (plus récent d'abord). */
+  /** Imports finished nights from the native side into the DB and returns the summaries (newest first). */
   async syncNights(): Promise<NightSummary[]> {
     const db = getDatabaseService();
     const ids = await SmartAlarm.listNights();
@@ -30,7 +30,7 @@ export const NightRepository = {
     return list[0] ?? null;
   },
 
-  /** Analyse fraîche du fichier natif (heures, cible, fenêtre), sinon résumé stocké en base. */
+  /** Fresh analysis of the native file (times, target, window), otherwise the summary stored in the DB. */
   async loadNightSummary(sessionId: string): Promise<NightSummary | null> {
     try {
       const raw = await SmartAlarm.readNight(sessionId);
@@ -44,7 +44,7 @@ export const NightRepository = {
     return getDatabaseService().getNightSummary(sessionId);
   },
 
-  /** Supprime la nuit partout : fichier natif (sinon elle serait réimportée) et résumé en base. */
+  /** Deletes the night everywhere: native file (otherwise it would be re-imported) and DB summary. */
   async deleteNight(sessionId: string): Promise<void> {
     await SmartAlarm.deleteNight(sessionId);
     await getDatabaseService().deleteNightSummary(sessionId);

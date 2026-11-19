@@ -6,7 +6,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Night of 17-18/11/2026: "Commencer la nuit maintenant" disappeared and the night left no data.
+ * Night of 17-18/11/2026: "Start the night now" disappeared and the night left no data.
  * Home hides that button whenever the stored state is TRACKING. A TRACKING state with no live
  * tracking service (a ghost night) kept it hidden, blocked automatic nights and recorded nothing.
  */
@@ -15,7 +15,7 @@ class GhostNightTest {
     private val min = 60_000L
     private val now = 1_763_420_000_000L
 
-    // The tracking notification's "Arrêter le suivi" stopped the service but left state TRACKING.
+    // The tracking notification's "Stop tracking" stopped the service but left state TRACKING.
     @Test
     fun notificationStopEndsTheNight() {
         val src = File("src/main/java/expo/modules/smartalarm/SleepTrackingService.kt").readText()

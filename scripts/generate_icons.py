@@ -1,8 +1,8 @@
-"""Régénère les icônes Aube : assets Expo et mipmaps Android.
+"""Regenerates the Aube icons: Expo assets and Android mipmaps.
 
-Dépendance : Pillow uniquement. Usage : python scripts/generate_icons.py
-Dessin sur 4096 px (supersampling x4), réduction LANCZOS pour l'antialiasing.
-Coordonnées ci-dessous exprimées sur une grille 1024.
+Dependency: Pillow only. Usage: python scripts/generate_icons.py
+Drawn at 4096 px (x4 supersampling), LANCZOS downscale for antialiasing.
+Coordinates below are expressed on a 1024 grid.
 """
 import math
 from pathlib import Path
@@ -32,7 +32,7 @@ def lerp_stops(stops, t):
 
 
 def gradient(width, height, stops):
-    """Dégradé vertical RGB ; stops = [(t, '#hex')], t dans [0, 1]."""
+    """Vertical RGB gradient; stops = [(t, '#hex')], t in [0, 1]."""
     rgb_stops = [(t, hex_rgb(c)) for t, c in stops]
     img = Image.new("RGB", (width, height))
     draw = ImageDraw.Draw(img)
@@ -47,7 +47,7 @@ def background():
 
 
 def rounded_line(draw, x1, y1, x2, y2, width, fill):
-    """Trait épais à bouts arrondis ; coordonnées sur grille 1024."""
+    """Thick line with rounded ends; coordinates on a 1024 grid."""
     w = width * SS
     draw.line([(x1 * SS, y1 * SS), (x2 * SS, y2 * SS)], fill=fill, width=w)
     r = w / 2
@@ -57,7 +57,7 @@ def rounded_line(draw, x1, y1, x2, y2, width, fill):
 
 
 def draw_sun():
-    """Demi-disque (y <= 600) avec dégradé, centre (512, 600), rayon 190."""
+    """Half disc (y <= 600) with gradient, centre (512, 600), radius 190."""
     grad = gradient(CANVAS, 190 * SS, [(0, "#ffe08a"), (1, "#ffb04a")])
     rgb = Image.new("RGB", (CANVAS, CANVAS))
     rgb.paste(grad, (0, 410 * SS))

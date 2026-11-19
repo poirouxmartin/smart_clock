@@ -18,7 +18,7 @@ export interface UserProfile {
   typicalBedtime: string;
   typicalWakeTime: string;
   
-  // Préférences réveil
+  // Wake-up preferences
   preferredSounds: string[];
   defaultVolume: number;
   defaultFadeInDuration: number;
@@ -26,7 +26,7 @@ export interface UserProfile {
   snoozeEnabled: boolean;
   snoozeDuration: number;
   
-  // Lumière
+  // Light
   lightEnabled: boolean;
   lightDeviceIds: string[];
   wakeUpLightConfig: WakeUpLightConfig;
@@ -37,7 +37,7 @@ export interface UserProfile {
   windDownEnabled: boolean;
   windDownMinutes: number;
   
-  // Apprentissage adaptatif
+  // Adaptive learning
   adaptiveLearningEnabled: boolean;
   learnedRmsBaseline: number;
   learnedAccelBaseline: number;
@@ -45,7 +45,7 @@ export interface UserProfile {
   learnedFallAsleep: number;
   sleepEfficiencyHistory: number[];
   
-  // Confidentialité
+  // Privacy
   dataRetentionDays: number;
   analyticsEnabled: boolean;
   crashReportingEnabled: boolean;
@@ -74,7 +74,7 @@ export interface SleepSession {
   wakeTriggerReason?: string;
   wakeConfidence?: number;
   
-  // Métriques calculées
+  // Computed metrics
   totalSleepTime?: number;
   sleepEfficiency?: number;
   deepSleepRatio?: number;
@@ -85,12 +85,12 @@ export interface SleepSession {
   fallAsleepDuration?: number;
   wakeAfterSleepOnset?: number;
   
-  // Qualité subjective
+  // Subjective quality
   qualityRating?: 'great' | 'good' | 'ok' | 'poor';
   moodRating?: 1 | 2 | 3 | 4 | 5;
   notes?: string;
   
-  // Données brutes (JSON)
+  // Raw data (JSON)
   rawEpochs?: string;
   rawAudioFeatures?: string;
   rawAccelFeatures?: string;
