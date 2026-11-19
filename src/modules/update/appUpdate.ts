@@ -58,7 +58,8 @@ export function pickUpdate(release: unknown, apkUrlPrefix: string = APK_URL_PREF
 
 /**
  * At most one network attempt per CHECK_INTERVAL_MS after a success and per
- * RETRY_AFTER_FAILURE_MS after a failure. Never throws.
+ * RETRY_AFTER_FAILURE_MS after a failure. Never throws. `force` skips the throttle: used when
+ * the user opened the app from the update notification.
  */
 export async function checkForUpdate(opts: {
   installedVersion: string;
@@ -66,12 +67,13 @@ export async function checkForUpdate(opts: {
   store: UpdateStore;
   fetchRelease: () => Promise<unknown>;
   apkUrlPrefix?: string;
+  force?: boolean;
 }): Promise<AvailableUpdate | null> {
-  const { installedVersion, now, store, fetchRelease, apkUrlPrefix = APK_URL_PREFIX } = opts;
+  const { installedVersion, now, store, fetchRelease, apkUrlPrefix = APK_URL_PREFIX, force = false } = opts;
   try {
     const lastCheck = await store.getLastCheck();
     let candidate = await store.getCached();
-    const fresh = lastCheck <= now && now - lastCheck < CHECK_INTERVAL_MS;
+    const fresh = !force && lastCheck <= now && now - lastCheck < CHECK_INTERVAL_MS;
     if (!fresh) {
       await store.setLastCheck(now);
       try {
@@ -90,6 +92,11 @@ export async function checkForUpdate(opts: {
     console.warn('[update] check error:', String(e));
     return null;
   }
+}
+
+/** Ask POST_NOTIFICATIONS once, on Android 13+ only, when not granted yet; never again whatever the answer. */
+export function shouldAskNotificationPermission(opts: { sdk: number; granted: boolean; alreadyAsked: boolean }): boolean {
+  return opts.sdk >= 33 && !opts.granted && !opts.alreadyAsked;
 }
 
 export async function fetchLatestRelease(url: string = RELEASES_URL, fetchFn: typeof fetch = fetch, timeoutMs = 10000): Promise<unknown> {

@@ -53,6 +53,13 @@ class SmartAlarmModule : Module() {
                 promise.resolve(r)
             }.start()
         }
+        AsyncFunction("scheduleUpdateCheck") {
+            UpdateCheckJob.schedule(context)
+            UpdateCheckJob.clearIfInstalled(context)
+        }
+        AsyncFunction("consumeUpdateOpen") {
+            UpdateCheckJob.consumeOpenRequest(context)
+        }
         AsyncFunction("getRingState") {
             mapOf(
                 "ringing" to RingService.isRinging,

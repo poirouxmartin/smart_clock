@@ -5,6 +5,7 @@ import {
   checkForUpdate,
   compareVersions,
   pickUpdate,
+  shouldAskNotificationPermission,
   type AvailableUpdate,
   type UpdateStore,
 } from '../appUpdate';
@@ -141,5 +142,32 @@ describe('checkForUpdate', () => {
     const fetchRelease = jest.fn();
     expect(await checkForUpdate({ installedVersion: '1.4.1', now: now + 1000, store, fetchRelease })).toBeNull();
     expect(fetchRelease).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch when the last check is fresh and force is not set', async () => {
+    const { store } = memoryStore({ lastCheck: now - 1000, cached: null });
+    const fetchRelease = jest.fn().mockResolvedValue(release('v1.4.1'));
+    expect(await checkForUpdate({ installedVersion: '1.4.0', now, store, fetchRelease })).toBeNull();
+    expect(fetchRelease).not.toHaveBeenCalled();
+  });
+
+  it('force fetches even when the last check is fresh', async () => {
+    const { store } = memoryStore({ lastCheck: now - 1000, cached: null });
+    const fetchRelease = jest.fn().mockResolvedValue(release('v1.4.1'));
+    const res = await checkForUpdate({ installedVersion: '1.4.0', now, store, fetchRelease, force: true });
+    expect(fetchRelease).toHaveBeenCalledTimes(1);
+    expect(res).toEqual(update);
+  });
+});
+
+describe('shouldAskNotificationPermission', () => {
+  it('asks on Android 13+ when not granted and never asked', () => {
+    expect(shouldAskNotificationPermission({ sdk: 33, granted: false, alreadyAsked: false })).toBe(true);
+  });
+
+  it('does not ask below Android 13, when granted, or when already asked', () => {
+    expect(shouldAskNotificationPermission({ sdk: 32, granted: false, alreadyAsked: false })).toBe(false);
+    expect(shouldAskNotificationPermission({ sdk: 34, granted: true, alreadyAsked: false })).toBe(false);
+    expect(shouldAskNotificationPermission({ sdk: 34, granted: false, alreadyAsked: true })).toBe(false);
   });
 });

@@ -1,15 +1,28 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AppState, View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, AppState, PermissionsAndroid, View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useI18n } from '@/modules/i18n';
 import { getDatabaseService } from '@/modules/user-profile/DatabaseService';
-import { checkForUpdate, fetchLatestRelease, type AvailableUpdate, type UpdateStore } from '@/modules/update/appUpdate';
-import { getVersionInfo, downloadAndInstallUpdate, type UpdateInstallResult } from '../../modules/smart-alarm';
+import {
+  checkForUpdate,
+  fetchLatestRelease,
+  shouldAskNotificationPermission,
+  type AvailableUpdate,
+  type UpdateStore,
+} from '@/modules/update/appUpdate';
+import {
+  getVersionInfo,
+  downloadAndInstallUpdate,
+  scheduleUpdateCheck,
+  consumeUpdateOpen,
+  type UpdateInstallResult,
+} from '../../modules/smart-alarm';
 import { makeTypography, Spacing, Radius, useTheme, type Palette } from '@/theme';
 import { updateBannerColors } from './updateBannerColors';
 
 const LAST_CHECK_KEY = 'update_last_check';
 const CACHED_KEY = 'update_cached';
+const NOTIF_ASKED_KEY = 'update_notif_permission_asked';
 
 const store: UpdateStore = {
   getLastCheck: () => getDatabaseService().getSetting<number>(LAST_CHECK_KEY, 0),
@@ -42,6 +55,26 @@ export function UpdateBanner() {
   const [hint, setHint] = useState('');
   // "Later" hides this version only: Home stays mounted for days, a newer release must still show.
   const [dismissedVersion, setDismissedVersion] = useState('');
+  // The mount effect has [] deps: read the latest translator through a ref so language changes are respected.
+  const tRef = useRef(tu);
+  tRef.current = tu;
+
+  // Only uses state setters and tRef, so it is safe to call from the mount effect closure
+  // (and it is declared before the early return below, so it is always initialised).
+  const install = async (u: AvailableUpdate) => {
+    if (downloading) return;
+    setDownloading(true);
+    setHint('');
+    try {
+      const result = await downloadAndInstallUpdate(u.url, u.version);
+      setHint(tRef.current(RESULT_HINT_KEYS[result] ?? 'invalid'));
+    } catch (e) {
+      console.error('Update install error:', e);
+      setHint(tRef.current('downloadFailed'));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   // Checked on mount and each time the app comes back to the foreground: Android keeps the app
   // in memory for days, so a mount-only check could miss a release for a long time.
@@ -54,6 +87,7 @@ export function UpdateBanner() {
       if (running) return;
       running = true;
       try {
+        const fromNotification = await consumeUpdateOpen().catch(() => false);
         const { versionName, releasesApiUrl, apkUrlPrefix } = await getVersionInfo();
         if (!releasesApiUrl || !apkUrlPrefix) return;
         const found = await checkForUpdate({
@@ -62,14 +96,38 @@ export function UpdateBanner() {
           store,
           fetchRelease: () => fetchLatestRelease(releasesApiUrl),
           apkUrlPrefix,
+          force: fromNotification,
         });
         if (active) setUpdate(found);
+        if (active && fromNotification && found) {
+          // Opened from the update notification: offer Install / Later right away.
+          const tr = tRef.current;
+          Alert.alert(tr('title', { version: found.version }), tr('subtitle'), [
+            { text: tr('later'), style: 'cancel', onPress: () => setDismissedVersion(found.version) },
+            { text: tr('install'), onPress: () => { install(found); } },
+          ]);
+        }
       } catch (e) {
         console.error('Update check error:', e);
       } finally {
         running = false;
       }
     };
+    scheduleUpdateCheck().catch(e => console.warn('[update] schedule failed:', String(e)));
+    // The background update notification needs POST_NOTIFICATIONS: asked once here, the Home
+    // permission checklist stays the way to grant it later.
+    (async () => {
+      try {
+        const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+        const alreadyAsked = await getDatabaseService().getSetting<boolean>(NOTIF_ASKED_KEY, false);
+        if (shouldAskNotificationPermission({ sdk: Number(Platform.Version), granted, alreadyAsked })) {
+          await getDatabaseService().setSetting(NOTIF_ASKED_KEY, true);
+          await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+        }
+      } catch (e) {
+        console.warn('[update] notification permission ask failed:', String(e));
+      }
+    })();
     run();
     const sub = AppState.addEventListener('change', s => {
       if (s === 'active') run();
@@ -82,20 +140,7 @@ export function UpdateBanner() {
 
   if (!update || update.version === dismissedVersion) return null;
 
-  const onInstall = async () => {
-    if (downloading) return;
-    setDownloading(true);
-    setHint('');
-    try {
-      const result = await downloadAndInstallUpdate(update.url, update.version);
-      setHint(tu(RESULT_HINT_KEYS[result] ?? 'invalid'));
-    } catch (e) {
-      console.error('Update install error:', e);
-      setHint(tu('downloadFailed'));
-    } finally {
-      setDownloading(false);
-    }
-  };
+  const onInstall = () => install(update);
 
   return (
     <View style={styles.card} accessibilityRole="alert">
