@@ -48,99 +48,96 @@ What did **not** work:
 
 ## Version 1.3.0 (2026-10-20)
 
-Nouveautés :
-- **Détection automatique du sommeil** (sans bouton, activée par défaut) : alarme quotidienne
-  armée, sondes toutes les 15 min en soirée, score pondéré (Sleep API, immobilité, obscurité,
-  heure habituelle, charge), démarrage du suivi au premier endormissement, faux départ annulé,
-  notification « Déjà réveillé·e ? ». Modules : `AutoManager`, `ProbeReceiver`,
+New:
+- **Automatic sleep detection** (no button, on by default): daily alarm armed,
+  probes every 15 min in the evening, weighted score (Sleep API, stillness, darkness,
+  usual bedtime, charge), tracking starts at the first sleep onset, false start cancelled,
+  notification "Already awake?". Modules: `AutoManager`, `ProbeReceiver`,
   `SleepApiReceiver`, `SleepOnsetDetector`, `AutoSchedule`, `UsualBedtime`.
-- **Sons de nature** (oiseaux, vagues, forêt, pluie, ruisseau ; la sonnerie système est retirée
-  en 1.4.0), montée de
-  volume exponentielle depuis 2 % (30/60/120 s), vibration après la montée. Modules :
-  `VolumeRamp`, `NatureSound`. Licence : `docs/sounds-license.md`.
-- **Aube lumineuse** (`DawnActivity`, `DawnCurve`) : 15/30/45 min avant l'alarme, luminosité
-  et couleur progressives, torche optionnelle en fin d'aube.
-- **Fenêtre de réveil** (`WakeDecider.decide`) : seuil personnel P90, mouvement soutenu, signal
-  Sleep API, ajustement près des cycles de 90 min. Justification : `docs/science-reveil.md`.
+- **Nature sounds** (birds, waves, forest, rain, stream; the system ringtone was removed
+  in 1.4.0), exponential volume ramp from 2% (30/60/120 s), vibration after the ramp.
+  Modules: `VolumeRamp`, `NatureSound`. Licence: `docs/sounds-license.md`.
+- **Dawn light** (`DawnActivity`, `DawnCurve`): 15/30/45 min before the alarm, progressive
+  brightness and colour, optional torch at the end of the dawn.
+- **Wake window** (`WakeDecider.decide`): personal P90 threshold, sustained movement, Sleep
+  API signal, adjustment near 90 min cycles. Rationale: `docs/science-reveil.md`.
 
-Tests : Jest 105 tests (7 suites) via `npm test` ; Kotlin 47 tests via
+Tests: Jest 105 tests (7 suites) via `npm test`; Kotlin 47 tests via
 `cd android && ./gradlew :smart-alarm:testDebugUnitTest` (WakeDecider, SleepOnsetDetector,
 AutoSchedule, UsualBedtime, DawnCurve, VolumeRamp, NatureSound).
 
 ## Version 1.4.0 (2026-11-15)
 
-- Plus jamais de repli vers la sonnerie système : si aucun son de nature ne se lit, vibration et
-  lumière seules ; chaque sonnerie est journalisée (`WakeLog`). Son d'orage CC0 ajouté.
-- Nuit : bascules du téléphone et capteurs muets détectés ; une nuit sans signal de mouvement
-  exploitable est signalée au lieu d'être classée « calme ».
-- Lumière chaude sur l'écran de sonnerie, synchronisée avec la montée du son.
-- Thèmes « nature » et « aube », écrans principaux rafraîchis.
+- Never fall back to the system ringtone again: if no nature sound can be played, vibration and
+  light only; each ringing is logged (`WakeLog`). CC0 storm sound added.
+- Night: phone pick-ups and silent sensors detected; a night without usable movement signal
+  is flagged instead of being classified as "calm".
+- Warm light on the ringing screen, synchronised with the sound ramp.
+- "Nature" and "dawn" themes, main screens refreshed.
 
 ## Version 1.4.1 (2026-11-15)
 
-- Mise à jour dans l'appli (`AppUpdater.kt`, `src/modules/update/`) : vérifie la dernière release
-  GitHub, propose le téléchargement et lance l'installeur système (APK vérifié : même package,
-  `versionCode` supérieur). Bloqué tant que le dépôt est privé (404).
+- In-app update (`AppUpdater.kt`, `src/modules/update/`): checks the latest GitHub
+  release, offers the download and launches the system installer (APK verified: same package,
+  higher `versionCode`). Blocked while the repository is private (404).
 
 ## Version 1.4.2 (2026-11-16)
 
-- Sonnerie facile à arrêter : `RingingOverlay` côté JS quand l'écran plein n'apparaît pas,
-  répétition (snooze, `Snooze.kt`), boutons Stop / Snooze dans la notification.
-- README : installation, avertissement (une alarme peut échouer) et licence.
+- Easy-to-stop ringing: `RingingOverlay` on the JS side when the full screen does not appear,
+  repetition (snooze, `Snooze.kt`), Stop / Snooze buttons in the notification.
+- README: installation, disclaimer (an alarm can fail) and licence.
 
 ## Version 1.4.3 (2026-11-17)
 
-- Prochaine alarme affichée dans le volet de notifications, avec « Passer » (`UpcomingAlarm.kt`).
-- Thème choisi appliqué à tous les écrans ; accueil resserré.
-- Statistiques : courbe de nuit en heures d'horloge, suppression d'une nuit.
-- Mise à jour : vérification au retour au premier plan, toutes les heures, nouvelle tentative
-  plus tôt après un échec ; bandeau en haut de l'accueil.
+- Next alarm shown in the notification shade, with "Skip" (`UpcomingAlarm.kt`).
+- Selected theme applied to all screens; home tightened.
+- Statistics: night chart in clock hours, deletion of a night.
+- Update: check when returning to the foreground, every hour, earlier retry after a failure;
+  banner at the top of home.
 
 ## Version 1.4.4 (2026-11-18)
 
-- Bandeau de mise à jour plus visible en haut de l'accueil ; vérification toutes les heures,
-  « Plus tard » n'ignore que la version proposée.
-- Correctifs d'alarme B1 à B5 et retrait du code mort (audit lot 1 ci-dessous).
+- More visible update banner at the top of home; check every hour, "Later" only ignores the
+  proposed version.
+- Alarm fixes B1 to B5 and removal of dead code (audit lot 1 below).
 
-## Audit lot 1 (publié dans la 1.4.4)
+## Audit lot 1 (shipped in 1.4.4)
 
-D'après l'audit du 16/11 (B1 à B5). Règles de transition pures dans `AlarmPolicy.kt`, testées
-par `AlarmPolicyTest.kt` :
-- **B1** une sonnerie dont le process meurt (batterie vide, crash, kill) laissait `ringing` pour
-  toujours et coupait le mode auto. L'état est désormais clos (`done`) au boot, à la réception
-  d'une alarme, dans `rearm` et par une sonde « chien de garde » armée pendant la sonnerie
-  (30 min sans sonnerie vivante ni snooze en attente). Un snooze en attente est réarmé au boot.
-- **B2** un réveil smart avant la cible (6:40 pour 7:00) ne re-sonne plus à 7:00 : la cible
-  servie par une sonnerie de moins de 3 h est consommée.
-- **B3** direct boot : prefs d'alarme en stockage protégé par l'appareil (`Prefs.kt`, migration
-  au premier déverrouillage), `LOCKED_BOOT_COMPLETED`, composants d'alarme `directBootAware`,
-  React Native chargé seulement après le déverrouillage (`MainApplication.kt`).
-- **B4** zéro jour coché : déjà désarmé sur master ; test ajouté, Sleep API et sondes aussi coupées.
-- **B5** rouvrir l'appli ne vide plus les sondes de la soirée (seulement si la cible change).
+From the 16/11 audit (B1 to B5). Pure transition rules in `AlarmPolicy.kt`, tested
+by `AlarmPolicyTest.kt`:
+- **B1** a ringing whose process dies (empty battery, crash, kill) stayed `ringing` forever
+  and blocked auto mode. The state is now closed (`done`) at boot, when an alarm is received,
+  in `rearm`, and by a "watchdog" probe armed during the ringing (30 min without a live ringing
+  or a pending snooze). A pending snooze is re-armed at boot.
+- **B2** a smart wake before the target (6:40 for 7:00) no longer rings again at 7:00: the target
+  served by a ringing less than 3 h earlier is consumed.
+- **B3** direct boot: alarm prefs in device-protected storage (`Prefs.kt`, migration
+  at first unlock), `LOCKED_BOOT_COMPLETED`, alarm components `directBootAware`,
+  React Native loaded only after unlock (`MainApplication.kt`).
+- **B4** zero days selected: already disarmed on master; test added, Sleep API and probes also turned off.
+- **B5** reopening the app no longer clears the evening probes (only if the target changes).
 
-Code mort retiré (graphe d'import depuis `index.ts`/`App.tsx`, 0 fichier orphelin restant) :
-écrans Login, Signup, Onboarding, EnrichedOnboarding, AlarmSetup, SleepAnalysis, DevTools ;
-modules `alarm-engine`, `auth`, `notifications`, `bedtime-calculator` ; composants et hooks
-d'animation, `constants`, `navigation/types`. Restent pour un lot suivant : dépendances
-inutilisées (`expo-sensors`, `expo-bluetooth`, `react-native-chart-kit`, `@shopify/flash-list`…)
-et modules encore atteints par Réglages sans effet réel (`light-controller`, `sound-manager`).
+Dead code removed (import graph from `index.ts`/`App.tsx`, 0 orphan files left):
+Login, Signup, Onboarding, EnrichedOnboarding, AlarmSetup, SleepAnalysis, DevTools screens;
+`alarm-engine`, `auth`, `notifications`, `bedtime-calculator` modules; animation components
+and hooks, `constants`, `navigation/types`. Left for a next batch: unused dependencies
+(`expo-sensors`, `expo-bluetooth`, `react-native-chart-kit`, `@shopify/flash-list`...)
+and modules still reached from Settings without real effect (`light-controller`, `sound-manager`).
 
-## Après 1.4.4 (branche dev/poiroux/widget-nuit-1811, non publiée)
+## After 1.4.4 (branch dev/poiroux/widget-nuit-1811, unreleased)
 
-- `5a7d2ad` : la notification « Arrêter le suivi » termine la nuit ; réparation de l'état « tracking » fantôme à l'ouverture, au réarmement, aux sondes et au démarrage (`AlarmPolicy.trackingRepair`).
-- `dde7ea5` : bouton principal de l'accueil en fond plein, visible pendant une nuit (« Reprendre la nuit »).
-- `d1306bb` : widget d'écran d'accueil « Nuit Aube » (3x1) pour lancer ou arrêter la nuit sans ouvrir l'appli.
-- Détails et captures : [docs/rapport-widget-nuit-1811.md](rapport-widget-nuit-1811.md).
+- `5a7d2ad`: the "Stop tracking" notification ends the night; repair of the ghost "tracking" state on app open, re-arm, probes and start-up (`AlarmPolicy.trackingRepair`).
+- `dde7ea5`: home main button in full background, visible during a night ("Resume the night").
+- `d1306bb`: "Nuit Aube" home screen widget (3x1) to start or stop the night without opening the app.
+- Details and screenshots: [docs/rapport-widget-nuit-1811.md](rapport-widget-nuit-1811.md).
 
-## Limites / à valider
+## Limits / to validate
 
-- Pas encore validé sur une nuit réelle ni sur un appareil de test.
-- La Sleep API dépend de Play Services et de la permission `ACTIVITY_RECOGNITION` (optionnelle).
-- L'actigraphie du téléphone ne distingue pas réellement les phases de sommeil : le gain
-  attendu est modeste (voir `docs/SCIENCE.md`).
-- La lumière de l'aube sur écran de téléphone est très en dessous des 250-300 lux des études.
-- Doze et les tueurs de tâches constructeur peuvent retarder les sondes : demander d'ignorer
-  les optimisations batterie.
-- La torche pointe vers le matelas quand le téléphone est posé écran en l'air : désactivée par défaut.
-- Le score d'endormissement peut se déclencher pendant une lecture au lit, téléphone immobile :
-  l'endormissement est alors estimé trop tôt.
+- Not yet validated on a real night or on a test device.
+- The Sleep API depends on Play Services and on the (optional) `ACTIVITY_RECOGNITION` permission.
+- Phone actigraphy does not really distinguish sleep phases: the expected gain is modest
+  (see `docs/SCIENCE.md`).
+- Dawn light on a phone screen is well below the 250-300 lux of the studies.
+- Doze and manufacturer task killers can delay the probes: ask users to ignore battery optimisations.
+- The torch points at the mattress when the phone lies screen-up: off by default.
+- The sleep-onset score can trigger during bedtime reading with the phone still: the sleep onset is then estimated too early.

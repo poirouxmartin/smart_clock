@@ -1,80 +1,80 @@
-# Aube - Réveil Connecté Intelligent
+# Aube - Smart Connected Alarm Clock
 
 ## Vision
-Réveil qui te réveille pile au bon moment pour te sentir bien (analyse pouls, sommeil profond, cycles, etc.)
+An alarm that wakes you at exactly the right moment so you feel good (heart rate analysis, deep sleep, cycles, etc.)
 
-## Fonctionnalités Principales
+## Main Features
 
-### 1. Analyse du Sommeil
-- **Microphone** : Détection des mouvements, ronflements, respiration
-- **Données perso affinées** : Apprentissage continu des patterns de sommeil de l'utilisateur
-- **Feedback utilisateur** : Notation du réveil (bien/moyen/mal) pour améliorer l'algo
+### 1. Sleep Analysis
+- **Microphone**: Detection of movements, snoring, breathing
+- **Refined personal data**: Continuous learning of the user's sleep patterns
+- **User feedback**: Wake-up rating (good/average/bad) to improve the algorithm
 
-### 2. Fenêtre de Réveil (1h30)
-- L'utilisateur choisit une plage de 1h30 (ex: 6h30-8h00)
-- L'app réveille au moment optimal dans cette fenêtre
-- **Meilleur moment à déterminer** : Recherche nécessaire sur les cycles de sommeil (90min), phases légères, etc.
+### 2. Wake Window (1h30)
+- The user chooses a 1h30 range (e.g. 6:30-8:00)
+- The app wakes the user at the optimal moment within this window
+- **Best moment to be determined**: Research needed on sleep cycles (90 min), light phases, etc.
 
-### 3. Types de Réveil
-- **Intelligent** (basé sur analyse)
-- **Simple** (réveil classique si besoin)
+### 3. Alarm Types
+- **Smart** (based on analysis)
+- **Simple** (classic alarm if needed)
 
-### 4. Réveil Doux
-- Sons nature (oiseaux, vagues, pluie, etc.)
-- Sons personnalisables (import fichiers audio)
-- **Lumière** : Intégration avec ampoules connectées (Philips Hue, Yeelight, etc.) ou flashlight téléphone
+### 4. Gentle Wake-Up
+- Nature sounds (birds, waves, rain, etc.)
+- Custom sounds (imported audio files)
+- **Light**: Integration with connected bulbs (Philips Hue, Yeelight, etc.) or the phone flashlight
 
-### 5. Indicateur Coucher
-- Calcule l'heure idéale pour dormir selon :
-  - Heure de réveil souhaitée
-  - Cycles habituels (90min)
-  - Mesures pouls/fréquence cardiaque
-  - Temps d'endormissement moyen
+### 5. Bedtime Indicator
+- Calculates the ideal time to go to sleep based on:
+  - Desired wake-up time
+  - Usual cycles (90 min)
+  - Heart rate measurements
+  - Average time to fall asleep
 
-### 6. Platform Cible
-- **Android** (priorité)
-- Architecture multi-plateforme pour futur iOS
-- Internationalisation (i18n) dès le début
+### 6. Target Platform
+- **Android** (priority)
+- Multi-platform architecture for a future iOS
+- Internationalisation (i18n) from the start
 
-## Architecture Technique
+## Technical Architecture
 
-### Stack Suggérée
-- **Frontend** : React Native / Expo (cross-platform, bon pour Android)
-- **Backend** : Optionnel au début (local-first), puis Firebase/Supabase pour sync
-- **Audio** : expo-audio / react-native-sound
-- **Sensors** : expo-sensors (accéléromètre), microphone via expo-av
-- **Light** : Bluetooth LE pour ampoules connectées
-- **Notifications** : expo-notifications (réveil en background)
+### Suggested Stack
+- **Frontend**: React Native / Expo (cross-platform, good for Android)
+- **Backend**: Optional at first (local-first), then Firebase/Supabase for sync
+- **Audio**: expo-audio / react-native-sound
+- **Sensors**: expo-sensors (accelerometer), microphone via expo-av
+- **Light**: Bluetooth LE for connected bulbs
+- **Notifications**: expo-notifications (background alarm)
 
-### Modules Core
+### Core Modules
 ```
 src/
-├── sleep-analysis/     # Analyse microphone + capteurs
-├── alarm-engine/       # Logique de réveil optimal
-├── sound-manager/      # Sons nature + custom
-├── light-controller/   # Intégration ampoules connectées
-├── bedtime-calculator/ # Indicateur coucher
-├── user-profile/       # Données perso + apprentissage
-├── notifications/      # Gestion réveil background
+├── sleep-analysis/     # Microphone + sensor analysis
+├── alarm-engine/       # Optimal wake-up logic
+├── sound-manager/      # Nature + custom sounds
+├── light-controller/   # Connected bulb integration
+├── bedtime-calculator/ # Bedtime indicator
+├── user-profile/       # Personal data + learning
+├── notifications/      # Background alarm handling
 └── i18n/              # Internationalisation
 ```
 
-## Recherche Nécessaire
-- [ ] Algorithme optimal réveil dans fenêtre 1h30 (cycles 90min, phase légère)
-- [ ] Précision analyse sommeil via microphone seul (vs accéléromètre)
-- [ ] Protocoles ampoules connectées (Matter, BLE, WiFi)
-- [ ] Background execution Android (foreground service, alarm manager)
-- [ ] Battery optimization exclusions
+## Research Needed
+- [ ] Optimal wake-up algorithm within the 1h30 window (90 min cycles, light phase)
+- [ ] Accuracy of sleep analysis with the microphone alone (vs accelerometer)
+- [ ] Connected bulb protocols (Matter, BLE, WiFi)
+- [ ] Android background execution (foreground service, alarm manager)
+- [ ] Battery optimisation exclusions
 
-## Prochaines Étapes
-1. Recherche literature sur détection phase sommeil léger
-2. POC analyse microphone (enregistrement nuit, détection pics)
-3. Choix stack définitive + setup projet Expo
-4. Architecture données (local storage + sync optionnel)
-5. UI/UX wireframes principaux écrans
+## Next Steps
+1. Literature research on light sleep phase detection
+2. Microphone analysis POC (night recording, peak detection)
+3. Final stack choice + Expo project setup
+4. Data architecture (local storage + optional sync)
+5. UI/UX wireframes for the main screens
 
-## Questions Ouvertes
-- Monétisation ? (Freemium, achat unique, abonnement)
-- Données santé : RGPD, consentement, anonymisation
-- Partenariats ampoules connectées ?
-- Export données utilisateur (CSV, HealthKit, Google Fit)
+## Open Questions
+- Monetisation? (Freemium, one-time purchase, subscription)
+- Health data: GDPR, consent, anonymisation
+- Partnerships with connected bulb makers?
+- User data export (CSV, HealthKit, Google Fit)
