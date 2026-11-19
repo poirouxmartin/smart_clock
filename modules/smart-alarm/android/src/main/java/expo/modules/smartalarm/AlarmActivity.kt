@@ -75,6 +75,10 @@ class AlarmActivity : Activity() {
         current = WeakReference(this)
 
         val reason = intent.getStringExtra(AlarmScheduler.EXTRA_REASON) ?: "fallback"
+        // Rescue path: the broadcast could not start RingService, so start it from the foreground.
+        if (intent.getBooleanExtra(RingService.EXTRA_START_RING, false) && !RingService.isRinging) {
+            runCatching { AlarmReceiver.startRing(this, reason) }
+        }
         val now = System.currentTimeMillis()
         val targetMs = AlarmStore.targetAtMs(this)
         // Continue from the dawn already shown, capped so the last stretch always rises with the

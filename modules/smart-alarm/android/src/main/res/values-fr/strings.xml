@@ -9,6 +9,8 @@
     <string name="ring_snooze">Fin du report</string>
     <string name="snooze_notif_title">Alarme reportée</string>
     <string name="snooze_notif_text">Elle sonnera à nouveau à %1$s</string>
+    <string name="ring_rescue_title">Réveil</string>
+    <string name="ring_rescue_text">Touchez pour ouvrir votre réveil</string>
     <string name="tracking_title">Nuit en cours</string>
     <string name="tracking_text">Réveil entre %1$s et %2$s</string>
     <string name="stop_night">Arrêter le suivi</string>

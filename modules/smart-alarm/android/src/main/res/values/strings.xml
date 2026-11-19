@@ -9,6 +9,8 @@
     <string name="ring_snooze">Snooze over</string>
     <string name="snooze_notif_title">Alarm snoozed</string>
     <string name="snooze_notif_text">Rings again at %1$s</string>
+    <string name="ring_rescue_title">Alarm</string>
+    <string name="ring_rescue_text">Tap to open your alarm</string>
     <string name="tracking_title">Night in progress</string>
     <string name="tracking_text">Wake-up between %1$s and %2$s</string>
     <string name="stop_night">Stop tracking</string>

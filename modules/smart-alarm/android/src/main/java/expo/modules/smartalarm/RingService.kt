@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
@@ -35,7 +36,6 @@ class RingService : Service() {
         private const val WAKE_LOCK_MS = 30 * 60_000L
         private const val AUTO_STOP_MS = 20 * 60_000L
         private const val RAMP_TICK_MS = 1_000L
-        private const val NATURE_START_VOLUME = 0.02f
         private const val SNOOZE_NOTIF_ID = 4243
         private const val SNOOZE_REQUEST_CODE = 2003
         private val VIBRATE_PATTERN = longArrayOf(0, 800, 800)
@@ -45,6 +45,62 @@ class RingService : Service() {
             private set
         @Volatile var currentReason = ""
             private set
+
+        /** Extra telling AlarmActivity to start RingService itself (rescue path). */
+        const val EXTRA_START_RING = "startRing"
+        private const val RESCUE_NOTIF_ID = 4244
+        private const val RESCUE_REQUEST_CODE = 2004
+
+        internal fun ensureChannel(ctx: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val nm = ctx.getSystemService(NotificationManager::class.java)
+                nm.deleteNotificationChannel(OLD_CHANNEL_ID)
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    ctx.getString(R.string.channel_alarm),
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    setSound(null, null)
+                    enableVibration(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    setBypassDnd(true)
+                }
+                nm.createNotificationChannel(channel)
+            }
+        }
+
+        /**
+         * Used when the system refused to start this service from the alarm broadcast: a
+         * full-screen notification opens AlarmActivity, which starts the ring from the foreground.
+         */
+        internal fun postRescue(ctx: Context, reason: String) {
+            ensureChannel(ctx)
+            val intent = Intent(ctx, AlarmActivity::class.java)
+                .putExtra(AlarmScheduler.EXTRA_REASON, reason)
+                .putExtra(EXTRA_START_RING, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+            val pi = PendingIntent.getActivity(
+                ctx,
+                RESCUE_REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val notification = NotificationCompat.Builder(ctx, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle(ctx.getString(R.string.ring_rescue_title))
+                .setContentText(ctx.getString(R.string.ring_rescue_text))
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setFullScreenIntent(pi, true)
+                .setContentIntent(pi)
+                .setAutoCancel(true)
+                .build()
+            ctx.getSystemService(NotificationManager::class.java).notify(RESCUE_NOTIF_ID, notification)
+        }
+
+        internal fun cancelRescue(ctx: Context) {
+            ctx.getSystemService(NotificationManager::class.java).cancel(RESCUE_NOTIF_ID)
+        }
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -57,7 +113,7 @@ class RingService : Service() {
     private var reason = "fallback"
     private var ringStartedMs = 0L
     private var rampMs = 60_000L
-    private val startVolume = NATURE_START_VOLUME
+    private var startVolume = Snooze.WAKE_START_VOLUME
     private var player: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -88,7 +144,9 @@ class RingService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == AlarmScheduler.ACTION_SNOOZE) {
-            if (ringing) snooze() else stopSelf()
+            // A tap can reach a fresh service instance (process restarted, ring lost) while the
+            // night is still RINGING: it must still schedule the re-ring, never be dropped.
+            if (Snooze.acceptsSnooze(ringing, AlarmStore.state(this))) snooze() else stopSelf()
             return START_NOT_STICKY
         }
 
@@ -100,7 +158,10 @@ class RingService : Service() {
         reason = fireReason
         ringing = true
         ringStartedMs = System.currentTimeMillis()
-        rampMs = WakeOptions.rampSeconds(this) * 1000L
+        val start = Snooze.ringStart(reason, WakeOptions.rampSeconds(this) * 1000L)
+        rampMs = start.rampMs
+        startVolume = start.startVolume
+        cancelRescue(this)
         AlarmStore.clearSnooze(this)
         getSystemService(NotificationManager::class.java).cancel(SNOOZE_NOTIF_ID)
 
@@ -123,8 +184,9 @@ class RingService : Service() {
         }
 
         acquireWakeLock()
-        // The sound fades in silently; vibration starts once the ramp is complete.
-        if (startSound()) handler.postDelayed(vibrateLater, rampMs) else startVibration()
+        // First ring: fades in from silence, vibration joins after the ramp. Snooze re-ring:
+        // audible at once and vibrating immediately (Snooze.ringStart).
+        if (startSound()) handler.postDelayed(vibrateLater, start.vibrateAfterMs) else startVibration()
         handler.post(rampStep)
         handler.postDelayed(autoStop, AUTO_STOP_MS)
         try {
@@ -148,22 +210,7 @@ class RingService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-    private fun createChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getSystemService(NotificationManager::class.java).deleteNotificationChannel(OLD_CHANNEL_ID)
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.channel_alarm),
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply {
-                setSound(null, null)
-                enableVibration(false)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                setBypassDnd(true)
-            }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
-    }
+    private fun createChannel() = ensureChannel(this)
 
     private fun showForeground(reason: String) {
         createChannel()

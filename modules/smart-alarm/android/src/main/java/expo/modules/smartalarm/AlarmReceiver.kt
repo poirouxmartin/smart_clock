@@ -20,6 +20,14 @@ class AlarmReceiver : BroadcastReceiver() {
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Cannot start RingService for reason=$reason", e)
+                // Never a silent miss: a full-screen notification lets AlarmActivity start the ring.
+                if (Snooze.onRingStartRefused(reason) == Snooze.Refused.FULL_SCREEN_NOTIFICATION) {
+                    try {
+                        RingService.postRescue(ctx, reason)
+                    } catch (e2: Exception) {
+                        Log.e(TAG, "Cannot post the rescue ring notification", e2)
+                    }
+                }
             }
         }
     }
