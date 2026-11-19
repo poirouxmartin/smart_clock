@@ -178,18 +178,18 @@ export class SleepAnalyzer {
       return {
         shouldWake: true,
         confidence: 1,
-        reason: 'Fin de fenêtre de réveil',
+        reason: 'End of wake window',
         optimalWakeTime: windowEnd,
       };
     }
 
     if (currentTime < windowStart) {
-      return { shouldWake: false, confidence: 0, reason: 'Avant fenêtre', optimalWakeTime: windowStart };
+      return { shouldWake: false, confidence: 0, reason: 'Before window', optimalWakeTime: windowStart };
     }
 
     const windowEpochs = this.epochHistory.filter(e => e.timestamp >= windowStart && e.timestamp <= currentTime);
     if (windowEpochs.length < 5) {
-      return { shouldWake: false, confidence: 0, reason: 'Pas assez de données', optimalWakeTime: currentTime };
+      return { shouldWake: false, confidence: 0, reason: 'Not enough data', optimalWakeTime: currentTime };
     }
 
     const lightSleepEpochs = windowEpochs.filter(e => e.lightSleepScore > 0.6);
@@ -200,7 +200,7 @@ export class SleepAnalyzer {
       return {
         shouldWake: true,
         confidence: lastLightEpoch.lightSleepScore,
-        reason: `Phase légère détectée (${consecutiveLight} epochs consécutifs)`,
+        reason: `Light sleep phase detected (${consecutiveLight} consecutive epochs)`,
         optimalWakeTime: lastLightEpoch.timestamp,
       };
     }
@@ -212,12 +212,12 @@ export class SleepAnalyzer {
       return {
         shouldWake: true,
         confidence: avgScore,
-        reason: 'Score phase légère élevé maintenu',
+        reason: 'High light-sleep score sustained',
         optimalWakeTime: currentTime,
       };
     }
 
-    return { shouldWake: false, confidence: 0, reason: 'Pas de phase légère détectée', optimalWakeTime: currentTime };
+    return { shouldWake: false, confidence: 0, reason: 'No light sleep phase detected', optimalWakeTime: currentTime };
   }
 
   private getMaxConsecutiveLightSleep(epochs: SleepEpochFeatures[]): number {

@@ -83,7 +83,7 @@ describe('SleepAnalyzer', () => {
       const result = analyzer.checkWakeTrigger(windowStart, windowEnd, now);
       
       expect(result.shouldWake).toBe(false);
-      expect(result.reason).toBe('Avant fenêtre');
+      expect(result.reason).toBe('Before window');
     });
 
     it('should trigger at window end (fallback)', () => {
@@ -95,7 +95,7 @@ describe('SleepAnalyzer', () => {
       
       expect(result.shouldWake).toBe(true);
       expect(result.confidence).toBe(1);
-      expect(result.reason).toContain('Fin de fenêtre');
+      expect(result.reason).toContain('End of wake window');
     });
   });
 
