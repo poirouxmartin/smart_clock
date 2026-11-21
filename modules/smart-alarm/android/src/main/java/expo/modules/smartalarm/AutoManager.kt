@@ -33,7 +33,7 @@ object AutoManager {
     /** A night never aims at an alarm further away than this (a skipped alarm leaves the next one ~1 day later). */
     internal const val MAX_ONSET_LEAD_MS = 16 * 60 * 60_000L
 
-    fun configure(ctx: Context, enabled: Boolean, hour: Int, minute: Int, daysMask: Int, windowMinutes: Int) {
+    fun configure(ctx: Context, enabled: Boolean, hour: Int, minute: Int, daysMask: Int, windowMinutes: Int, dayMinutes: List<Int>? = null) {
         val wasEnabled = AutoStore.enabled(ctx)
         AutoStore.save(
             ctx,
@@ -41,6 +41,7 @@ object AutoManager {
             hour = hour,
             minute = minute,
             daysMask = daysMask,
+            dayMinutes = dayMinutes,
             windowMinutes = windowMinutes,
         )
         if (enabled) {
@@ -95,6 +96,7 @@ object AutoManager {
             state,
             AlarmStore.firedAtMs(ctx),
             AutoStore.currentTargetMs(ctx),
+            dayMinutes = AutoStore.dayMinutes(ctx),
         )
         if (plan !is AlarmPolicy.RearmPlan.Arm) {
             // No enabled day: nothing armed, nothing to show.

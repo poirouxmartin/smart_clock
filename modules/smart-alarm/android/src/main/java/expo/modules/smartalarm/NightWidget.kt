@@ -33,6 +33,7 @@ class NightWidgetActionReceiver : BroadcastReceiver() {
                         AutoStore.hour(context),
                         AutoStore.minute(context),
                         0x7F,
+                        dayMinutes = AutoStore.dayMinutes(context),
                     ) ?: return
                     NightSession.start(context, target, AutoStore.windowMinutes(context))
                     Toast.makeText(
@@ -70,7 +71,7 @@ object NightWidget {
             val ids = mgr.getAppWidgetIds(ComponentName(ctx, NightWidgetProvider::class.java))
             if (ids.isEmpty()) return
             val now = System.currentTimeMillis()
-            val next = AutoSchedule.nextTargetMs(now, AutoStore.hour(ctx), AutoStore.minute(ctx), 0x7F)
+            val next = AutoSchedule.nextTargetMs(now, AutoStore.hour(ctx), AutoStore.minute(ctx), 0x7F, dayMinutes = AutoStore.dayMinutes(ctx))
             val model = NightWidgetModel.of(
                 AlarmStore.state(ctx),
                 AlarmStore.targetAtMs(ctx),

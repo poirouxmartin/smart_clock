@@ -50,9 +50,10 @@ object AlarmPolicy {
         firedAtMs: Long,
         currentTargetMs: Long,
         tz: java.util.TimeZone = java.util.TimeZone.getDefault(),
+        dayMinutes: List<Int> = emptyList(),
     ): RearmPlan {
         val from = searchFromMs(nowMs, state, firedAtMs, currentTargetMs)
-        val target = AutoSchedule.nextTargetSkipping(from, hour, minute, daysMask, skippedMs, tz)
+        val target = AutoSchedule.nextTargetSkipping(from, hour, minute, daysMask, skippedMs, tz, dayMinutes)
             ?: return RearmPlan.Disarm
         return RearmPlan.Arm(target, clearProbes = target != currentTargetMs)
     }

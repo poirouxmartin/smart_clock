@@ -153,7 +153,7 @@ export function HomeScreen() {
     if (busy) return;
     setBusy(true);
     try {
-      const targetMs = nextTargetMs(settings.targetMinutes);
+      const targetMs = nextTargetMs(settings.targetMinutes, new Date(), settings.dayMinutes);
       const { exactAlarm } = await SmartAlarm.startNight(targetMs, settings.windowMinutes);
       if (!exactAlarm) {
         // Inexact fallback can drift by minutes in Doze: tell the user to grant the permission.
@@ -182,7 +182,7 @@ export function HomeScreen() {
   const nightInProgress = status?.state === 'tracking';
 
   const hasTarget = settings.auto && !!autoStatus && autoStatus.currentTargetMs > 0;
-  const heroTargetMs = hasTarget ? autoStatus!.currentTargetMs : nextTargetMs(settings.targetMinutes);
+  const heroTargetMs = hasTarget ? autoStatus!.currentTargetMs : nextTargetMs(settings.targetMinutes, new Date(), settings.dayMinutes);
   const heroWindow = hasTarget ? autoStatus!.windowMinutes : settings.windowMinutes;
   const heroRange = `${hm(heroTargetMs - heroWindow * 60000)}–${hm(heroTargetMs)}`;
   const heroLabel = (() => {

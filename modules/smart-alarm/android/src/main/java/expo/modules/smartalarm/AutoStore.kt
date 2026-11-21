@@ -23,6 +23,12 @@ object AutoStore {
 
     fun daysMask(ctx: Context): Int = prefs(ctx).getInt("daysMask", ALL_DAYS)
 
+    /** Per-weekday time overrides, minutes of day, Monday first, -1 = use the default time. */
+    fun dayMinutes(ctx: Context): List<Int> {
+        val parts = prefs(ctx).getString("dayMinutes", null)?.split(",")?.mapNotNull { it.trim().toIntOrNull() }
+        return if (parts != null && parts.size == 7) parts else List(7) { -1 }
+    }
+
     fun windowMinutes(ctx: Context): Int = prefs(ctx).getInt("windowMinutes", 30)
 
     fun currentTargetMs(ctx: Context): Long = prefs(ctx).getLong("currentTargetMs", 0L)
@@ -44,6 +50,7 @@ object AutoStore {
         hour: Int? = null,
         minute: Int? = null,
         daysMask: Int? = null,
+        dayMinutes: List<Int>? = null,
         windowMinutes: Int? = null,
         currentTargetMs: Long? = null,
         awakeNotifiedTargetMs: Long? = null,
@@ -55,6 +62,7 @@ object AutoStore {
         hour?.let { e.putInt("hour", it) }
         minute?.let { e.putInt("minute", it) }
         daysMask?.let { e.putInt("daysMask", it) }
+        dayMinutes?.let { e.putString("dayMinutes", it.joinToString(",")) }
         windowMinutes?.let { e.putInt("windowMinutes", it) }
         currentTargetMs?.let { e.putLong("currentTargetMs", it) }
         awakeNotifiedTargetMs?.let { e.putLong("awakeNotifiedTargetMs", it) }
@@ -125,6 +133,7 @@ object AutoStore {
             "hour" to hour(ctx),
             "minute" to minute(ctx),
             "daysMask" to daysMask(ctx),
+            "dayMinutes" to dayMinutes(ctx),
             "windowMinutes" to windowMinutes(ctx),
             "currentTargetMs" to currentTargetMs(ctx),
             "skippedTargetMs" to skippedTargetMs(ctx),
