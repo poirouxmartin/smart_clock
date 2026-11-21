@@ -27,6 +27,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A normal build takes about 20 min (CMake for four ABIs); fail fast on a real hang.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +62,8 @@ jobs:
 
       - name: Build release APK
         working-directory: android
-        run: ./gradlew assembleRelease
+        timeout-minutes: 40
+        run: ./gradlew assembleRelease --no-daemon
         env:
           ANDROID_KEYSTORE_FILE: smartclock-release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
