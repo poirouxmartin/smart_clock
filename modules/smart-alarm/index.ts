@@ -26,6 +26,8 @@ export type AutoConfig = {
   hour: number;
   minute: number;
   daysMask: number;
+  /** Optional per-weekday minutes of day, Monday first, -1 = default time; omitted keeps the stored value. */
+  dayMinutes?: number[];
   windowMinutes: number;
 };
 
@@ -34,6 +36,7 @@ export type AutoStatus = {
   hour: number;
   minute: number;
   daysMask: number;
+  dayMinutes: number[];
   windowMinutes: number;
   currentTargetMs: number;
   skippedTargetMs: number;
@@ -107,6 +110,7 @@ const DISABLED_AUTO_STATUS: AutoStatus = {
   hour: 0,
   minute: 0,
   daysMask: 0,
+  dayMinutes: [-1, -1, -1, -1, -1, -1, -1],
   windowMinutes: 0,
   currentTargetMs: 0,
   skippedTargetMs: 0,

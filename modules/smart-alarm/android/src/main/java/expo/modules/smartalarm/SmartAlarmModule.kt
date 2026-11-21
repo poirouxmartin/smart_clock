@@ -110,6 +110,7 @@ class SmartAlarmModule : Module() {
             (cfg["minute"] as? Number)?.toInt() ?: AutoStore.minute(ctx),
             (cfg["daysMask"] as? Number)?.toInt() ?: AutoStore.daysMask(ctx),
             (cfg["windowMinutes"] as? Number)?.toInt() ?: AutoStore.windowMinutes(ctx),
+            (cfg["dayMinutes"] as? List<*>)?.mapNotNull { (it as? Number)?.toInt() }?.takeIf { it.size == 7 },
         )
         return AutoStore.toMap(ctx)
     }

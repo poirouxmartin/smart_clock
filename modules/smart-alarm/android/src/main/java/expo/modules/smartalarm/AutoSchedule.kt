@@ -12,6 +12,7 @@ object AutoSchedule {
     /**
      * Next occurrence of hour:minute strictly later than nowMs + 1 min on an enabled day.
      * daysMask bit0 = Monday ... bit6 = Sunday. Null if no day is enabled.
+     * dayMinutes (same Monday-first index) overrides the time of a weekday with minutes of day, -1 or missing = hour:minute.
      */
     fun nextTargetMs(
         nowMs: Long,
@@ -19,6 +20,7 @@ object AutoSchedule {
         minute: Int,
         daysMask: Int,
         tz: TimeZone = TimeZone.getDefault(),
+        dayMinutes: List<Int> = emptyList(),
     ): Long? {
         val mask = daysMask and ALL_DAYS
         if (mask == 0) return null
@@ -27,11 +29,12 @@ object AutoSchedule {
             val cal = Calendar.getInstance(tz)
             cal.timeInMillis = nowMs
             cal.add(Calendar.DAY_OF_MONTH, offset)
-            cal.set(Calendar.HOUR_OF_DAY, hour)
-            cal.set(Calendar.MINUTE, minute)
+            val bit = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7
+            val override = dayMinutes.getOrNull(bit) ?: -1
+            cal.set(Calendar.HOUR_OF_DAY, if (override in 0 until 1440) override / 60 else hour)
+            cal.set(Calendar.MINUTE, if (override in 0 until 1440) override % 60 else minute)
             cal.set(Calendar.SECOND, 0)
             cal.set(Calendar.MILLISECOND, 0)
-            val bit = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7
             if (((mask shr bit) and 1) == 1 && cal.timeInMillis > earliest) return cal.timeInMillis
         }
         return null
@@ -45,9 +48,10 @@ object AutoSchedule {
         daysMask: Int,
         skippedMs: Long,
         tz: TimeZone = TimeZone.getDefault(),
+        dayMinutes: List<Int> = emptyList(),
     ): Long? {
-        val next = nextTargetMs(nowMs, hour, minute, daysMask, tz) ?: return null
-        return if (next == skippedMs) nextTargetMs(skippedMs, hour, minute, daysMask, tz) else next
+        val next = nextTargetMs(nowMs, hour, minute, daysMask, tz, dayMinutes) ?: return null
+        return if (next == skippedMs) nextTargetMs(skippedMs, hour, minute, daysMask, tz, dayMinutes) else next
     }
 
     /** Minute of day (0..1439) of tMs in the given zone. */

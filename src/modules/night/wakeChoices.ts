@@ -3,7 +3,11 @@ import { ALL_DAYS, WEEKDAYS } from './autoConfig';
 export const WINDOW_CHOICES = [10, 20, 30, 45];
 export const RAMP_CHOICES = [30, 60, 120];
 export const DAWN_CHOICES = [15, 30, 45];
-export const DEFAULT_NIGHT_SETTINGS = { targetMinutes: 7 * 60 + 30, windowMinutes: 30, auto: true, daysMask: ALL_DAYS };
+export const DEFAULT_NIGHT_SETTINGS = { targetMinutes: 7 * 60 + 30, windowMinutes: 30, auto: true,
+  daysMask: ALL_DAYS,
+  /** Per-weekday time override, minutes of day, Monday first like daysMask; -1 = use targetMinutes. */
+  dayMinutes: [-1, -1, -1, -1, -1, -1, -1] as number[],
+};
 export type NightSettings = typeof DEFAULT_NIGHT_SETTINGS;
 export const NIGHT_SETTINGS_KEY = 'night_settings';
 
@@ -29,12 +33,25 @@ export function daysPreset(mask: number): DaysPreset {
 
 export const PRESET_MASKS: Record<Exclude<DaysPreset, 'custom'>, number> = { everyDay: ALL_DAYS, weekdays: WEEKDAYS };
 
-/** Next occurrence of HH:MM: today if still in the future, otherwise tomorrow. */
-export function nextTargetMs(minutesOfDay: number, now: Date = new Date()): number {
-  const d = new Date(now);
-  d.setHours(Math.floor(minutesOfDay / 60), minutesOfDay % 60, 0, 0);
-  if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
-  return d.getTime();
+/** Minutes of day a weekday (Monday = 0) rings at: its override when set, else the default time. */
+export function dayTarget(defaultMinutes: number, dayMinutes: readonly number[] | undefined, dayIndex: number): number {
+  const o = dayMinutes?.[dayIndex];
+  return o !== undefined && o >= 0 && o < 1440 ? o : defaultMinutes;
+}
+
+/**
+ * Next occurrence of HH:MM: today if still in the future, otherwise the following day(s).
+ * With dayMinutes each weekday uses its own time; every day is allowed, a manual start is explicit.
+ */
+export function nextTargetMs(minutesOfDay: number, now: Date = new Date(), dayMinutes?: readonly number[]): number {
+  for (let offset = 0; offset < 8; offset++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + offset);
+    const m = dayTarget(minutesOfDay, dayMinutes, (d.getDay() + 6) % 7);
+    d.setHours(Math.floor(m / 60), m % 60, 0, 0);
+    if (d.getTime() > now.getTime()) return d.getTime();
+  }
+  return now.getTime();
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');

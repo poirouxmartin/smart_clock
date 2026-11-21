@@ -1,5 +1,5 @@
 import { ALL_DAYS, WEEKDAYS } from '../autoConfig';
-import { RAMP_CHOICES, WINDOW_CHOICES, daysPreset, fromWheel, stepChoice } from '../wakeChoices';
+import { RAMP_CHOICES, WINDOW_CHOICES, dayTarget, daysPreset, fromWheel, nextTargetMs, stepChoice } from '../wakeChoices';
 
 describe('stepChoice', () => {
   it('moves to the next and previous choice', () => {
@@ -29,6 +29,28 @@ describe('daysPreset', () => {
   it('anything else is custom', () => {
     expect(daysPreset(0b0000111)).toBe('custom');
     expect(daysPreset(0)).toBe('custom');
+  });
+});
+
+describe('nextTargetMs with per-day times', () => {
+  // 2026-10-23 is a Friday; local time on both sides, so the zone does not matter.
+  const at = (d: number, h: number, m: number) => new Date(2026, 9, d, h, m, 0, 0);
+  const sat = [-1, -1, -1, -1, -1, 9 * 60 + 30, -1];
+
+  it('behaves as before without overrides', () => {
+    expect(nextTargetMs(420, at(23, 6, 0))).toBe(at(23, 7, 0).getTime());
+    expect(nextTargetMs(420, at(23, 8, 0))).toBe(at(24, 7, 0).getTime());
+  });
+
+  it('uses the override of the weekday it lands on', () => {
+    expect(nextTargetMs(420, at(23, 8, 0), sat)).toBe(at(24, 9, 30).getTime());
+    expect(nextTargetMs(420, at(24, 10, 0), sat)).toBe(at(25, 7, 0).getTime());
+  });
+
+  it('dayTarget falls back to the default for -1 or missing', () => {
+    expect(dayTarget(420, sat, 5)).toBe(570);
+    expect(dayTarget(420, sat, 0)).toBe(420);
+    expect(dayTarget(420, undefined, 5)).toBe(420);
   });
 });
 

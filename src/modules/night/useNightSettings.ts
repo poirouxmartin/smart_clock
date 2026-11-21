@@ -30,6 +30,7 @@ const configure = (s: NightSettings) =>
     hour: Math.floor(s.targetMinutes / 60),
     minute: s.targetMinutes % 60,
     daysMask: s.daysMask,
+    dayMinutes: s.dayMinutes,
     windowMinutes: s.windowMinutes,
   });
 
@@ -49,6 +50,7 @@ export function useNightSettings(opts: { applyOnLoad?: boolean } = {}) {
         try {
           const saved = await getDatabaseService().getSetting<NightSettings>(NIGHT_SETTINGS_KEY, DEFAULT_NIGHT_SETTINGS);
           const merged = { ...DEFAULT_NIGHT_SETTINGS, ...saved };
+          if (!Array.isArray(merged.dayMinutes) || merged.dayMinutes.length !== 7) merged.dayMinutes = DEFAULT_NIGHT_SETTINGS.dayMinutes;
           if (!active) return;
           settingsRef.current = merged;
           setSettings(merged);

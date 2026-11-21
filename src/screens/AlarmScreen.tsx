@@ -6,7 +6,8 @@ import { Screen, Card } from '@/components/Screen';
 import { ValueStepper } from '@/components/ValueStepper';
 import { TimeWheelModal } from '@/components/TimeWheelModal';
 import { requestAutoPermissions, useNightSettings } from '@/modules/night/useNightSettings';
-import { DAWN_CHOICES, RAMP_CHOICES, WINDOW_CHOICES, hm, nextTargetMs, stepChoice } from '@/modules/night/wakeChoices';
+import { DAY_KEYS, formatMinuteOfDay, isDayOn } from '@/modules/night/autoConfig';
+import { DAWN_CHOICES, RAMP_CHOICES, WINDOW_CHOICES, dayTarget, hm, nextTargetMs, stepChoice } from '@/modules/night/wakeChoices';
 import { SmartAlarm } from '../../modules/smart-alarm';
 import type { WakeOptions, WakeSound } from '../../modules/smart-alarm';
 import { makeTypography, Spacing, Radius, useTheme, useThemedStyles, type Palette } from '@/theme';
@@ -33,6 +34,7 @@ export function AlarmScreen() {
 
   const [activityDenied, setActivityDenied] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [dayPicker, setDayPicker] = useState<number | null>(null);
   const [wake, setWake] = useState<WakeOptions>({ sound: 'birds', rampSeconds: 60, dawnEnabled: true, dawnMinutes: 30, torch: false });
 
   useEffect(() => {
@@ -75,7 +77,13 @@ export function AlarmScreen() {
     }
   };
 
-  const targetMs = nextTargetMs(settings.targetMinutes);
+  const setDayMinutes = (dayIndex: number, minutes: number) => {
+    const next = [...settings.dayMinutes];
+    next[dayIndex] = minutes;
+    updateSettings({ dayMinutes: next });
+  };
+
+  const targetMs = nextTargetMs(settings.targetMinutes, new Date(), settings.dayMinutes);
   const windowStartMs = targetMs - settings.windowMinutes * 60000;
   const timeText = `${pad(Math.floor(settings.targetMinutes / 60))}:${pad(settings.targetMinutes % 60)}`;
   const trackColor = { false: c.bgSurface, true: c.primaryDark };
@@ -99,6 +107,39 @@ export function AlarmScreen() {
           <Text style={styles.time}>{timeText}</Text>
           <Text style={styles.caption}>{tn('tapToChange')}</Text>
         </TouchableOpacity>
+        {settings.auto && settings.daysMask !== 0 && (
+          <View>
+            <Text style={styles.label}>{tn('perDayTitle')}</Text>
+            {DAY_KEYS.map((key, i) => {
+              if (!isDayOn(settings.daysMask, i)) return null;
+              const custom = dayTarget(-1, settings.dayMinutes, i) >= 0;
+              const minutes = dayTarget(settings.targetMinutes, settings.dayMinutes, i);
+              return (
+                <View key={key} style={styles.dayRow}>
+                  <TouchableOpacity style={styles.dayRowMain} onPress={() => setDayPicker(i)} accessibilityRole="button">
+                    <Text style={styles.dayName}>{tn(`dayName${i}`)}</Text>
+                    <Text style={[styles.dayTime, !custom && styles.dayTimeDefault]}>
+                      {formatMinuteOfDay(minutes)}
+                      {!custom && `  ${tn('perDayDefault')}`}
+                    </Text>
+                  </TouchableOpacity>
+                  {custom ? (
+                    <TouchableOpacity
+                      style={styles.dayReset}
+                      onPress={() => setDayMinutes(i, -1)}
+                      accessibilityRole="button"
+                      accessibilityLabel={tn('perDayReset')}
+                    >
+                      <MaterialCommunityIcons name="restore" size={18} color={c.primaryLight} />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.dayReset} />
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
         <ValueStepper
           label={tn('window')}
           value={tn('minutesValue', { min: settings.windowMinutes })}
@@ -170,6 +211,16 @@ export function AlarmScreen() {
           updateSettings({ targetMinutes: m });
         }}
       />
+      <TimeWheelModal
+        visible={dayPicker !== null}
+        minutes={dayPicker === null ? settings.targetMinutes : dayTarget(settings.targetMinutes, settings.dayMinutes, dayPicker)}
+        onCancel={() => setDayPicker(null)}
+        onConfirm={m => {
+          const day = dayPicker;
+          setDayPicker(null);
+          if (day !== null) setDayMinutes(day, m);
+        }}
+      />
     </Screen>
   );
 }
@@ -188,6 +239,12 @@ const makeStyles = (c: Palette) => {
     captionTop: { ...T.caption, color: c.textMuted, marginBottom: Spacing.sm },
     timeButton: { alignItems: 'center', paddingVertical: Spacing.sm },
     time: { fontSize: 56, fontWeight: '300', color: c.text, textAlign: 'center', fontVariant: ['tabular-nums'] },
+    dayRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: c.borderLight },
+    dayRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
+    dayName: { ...T.bodySmall, color: c.text },
+    dayTime: { ...T.bodySmall, color: c.primaryLight, fontWeight: '600', fontVariant: ['tabular-nums'] },
+    dayTimeDefault: { color: c.textMuted, fontWeight: '400' },
+    dayReset: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
     windowLine: { ...T.body, color: c.primaryLight, marginTop: Spacing.lg, textAlign: 'center', fontWeight: '500' },
     tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
     tile: {
