@@ -42,6 +42,7 @@ class NightWidgetActionReceiver : BroadcastReceiver() {
                     ).show()
                 }
                 NightWidget.ACTION_STOP -> if (state == AlarmStore.TRACKING) {
+                    NightLog.add(context, "widget stop")
                     NightSession.cancel(context)
                     Toast.makeText(context, R.string.widget_stopped, Toast.LENGTH_SHORT).show()
                 }

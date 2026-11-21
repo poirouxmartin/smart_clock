@@ -51,6 +51,8 @@ object AutoManager {
         }
         cancelProbe(ctx)
         unregisterSleepApi(ctx)
+        // A manual night in progress keeps its watchdog.
+        scheduleNightCheck(ctx)
         val state = AlarmStore.state(ctx)
         if (state != AlarmStore.TRACKING && state != AlarmStore.RINGING) {
             AlarmScheduler.cancel(ctx)
@@ -96,6 +98,7 @@ object AutoManager {
         )
         if (plan !is AlarmPolicy.RearmPlan.Arm) {
             // No enabled day: nothing armed, nothing to show.
+            NightLog.add(ctx, "rearm disarm")
             AutoStore.save(ctx, currentTargetMs = 0L)
             AlarmScheduler.cancel(ctx)
             DawnScheduler.cancel(ctx)
@@ -136,8 +139,13 @@ object AutoManager {
 
     /** Called by ProbeReceiver with the sensor sample taken at probe time. */
     fun onProbe(ctx: Context, probe: SleepProbe) {
-        if (!AutoStore.enabled(ctx)) return
         val now = System.currentTimeMillis()
+        // Also the watchdog of manual nights: a killed tracking service is restarted here.
+        NightSession.repair(ctx, now)
+        if (!AutoStore.enabled(ctx)) {
+            scheduleNightCheck(ctx, now)
+            return
+        }
         // While ringing, the probe is only a watchdog against a ring that died.
         if (recoverStaleRinging(ctx, now)) {
             rearm(ctx)
@@ -148,13 +156,13 @@ object AutoManager {
         val usual = AutoStore.usualBedMinute(ctx)
         val probes = AutoStore.probes(ctx)
 
-        NightSession.repair(ctx, now)
         val state = AlarmStore.state(ctx)
         if (state == AlarmStore.TRACKING) {
             if (NightSession.isAuto(ctx)) {
                 val awake = SleepOnsetDetector.isAwake(probes, minuteOf, usual)
                 if (awake && now - NightSession.onsetMs(ctx) < FALSE_ONSET_MS) {
                     Log.i(TAG, "False sleep onset, stopping automatic night")
+                    NightLog.add(ctx, "false onset stop")
                     ctx.stopService(Intent(ctx, SleepTrackingService::class.java))
                     AlarmStore.edit(ctx) { putString("state", AlarmStore.IDLE) }
                     rearm(ctx)
@@ -255,17 +263,22 @@ object AutoManager {
         return if (start > target - LAST_START_BEFORE_TARGET_MS) null else start
     }
 
+    /** Watchdog of a TRACKING night (manual or automatic): next probe, or none past the target. */
+    fun scheduleNightCheck(ctx: Context, now: Long = System.currentTimeMillis()) {
+        if (AlarmStore.state(ctx) != AlarmStore.TRACKING) return
+        val next = AlarmPolicy.trackingCheckAt(
+            NightSession.isAuto(ctx),
+            now,
+            AlarmStore.windowStartMs(ctx),
+            AlarmStore.targetAtMs(ctx),
+        )
+        if (next != null) scheduleProbe(ctx, next) else cancelProbe(ctx)
+    }
+
     /** Schedules the next probe for the current state, or cancels probing. */
     private fun scheduleNext(ctx: Context, now: Long) {
         when (AlarmStore.state(ctx)) {
-            AlarmStore.TRACKING -> {
-                val next = now + PROBE_INTERVAL_MS
-                if (NightSession.isAuto(ctx) && next < AlarmStore.windowStartMs(ctx)) {
-                    scheduleProbe(ctx, next)
-                } else {
-                    cancelProbe(ctx)
-                }
-            }
+            AlarmStore.TRACKING -> scheduleNightCheck(ctx, now)
             AlarmStore.IDLE, AlarmStore.DONE -> {
                 val next = nextProbeTime(ctx, now)
                 if (next != null) scheduleProbe(ctx, next) else cancelProbe(ctx)

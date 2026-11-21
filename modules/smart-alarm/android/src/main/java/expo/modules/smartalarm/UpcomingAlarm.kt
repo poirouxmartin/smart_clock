@@ -52,6 +52,7 @@ object UpcomingAlarm {
     fun skipNext(ctx: Context) {
         val target = AutoStore.currentTargetMs(ctx)
         if (target <= 0L) return
+        NightLog.add(ctx, "skip next target=${NightLog.time(target)}")
         AutoStore.save(ctx, skippedTargetMs = target)
         AlarmScheduler.cancel(ctx)
         DawnScheduler.cancel(ctx)

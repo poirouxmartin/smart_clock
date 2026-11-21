@@ -31,6 +31,7 @@ class ProbeReceiver : BroadcastReceiver() {
             AutoManager.ACTION_PROBE -> runProbe(context, goAsync())
             UpcomingAlarm.ACTION_SKIP -> UpcomingAlarm.skipNext(context)
             ACTION_CANCEL_ALARM -> {
+                NightLog.add(context, "notification cancel alarm")
                 NightSession.cancel(context)
                 NotificationManagerCompat.from(context).cancel(NightSession.NOTIF_AWAKE_ID)
             }

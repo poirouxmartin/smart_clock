@@ -11,13 +11,14 @@ class BootReceiver : BroadcastReceiver() {
             // LOCKED_BOOT_COMPLETED: a night reboot (system update) before unlock still re-arms (B3).
             Intent.ACTION_LOCKED_BOOT_COMPLETED,
             Intent.ACTION_BOOT_COMPLETED,
-            Intent.ACTION_MY_PACKAGE_REPLACED -> onReschedule(context, processRestarted = true)
+            Intent.ACTION_MY_PACKAGE_REPLACED -> onReschedule(context, intent.action, processRestarted = true)
             Intent.ACTION_TIME_CHANGED,
-            Intent.ACTION_TIMEZONE_CHANGED -> onReschedule(context, processRestarted = false)
+            Intent.ACTION_TIMEZONE_CHANGED -> onReschedule(context, intent.action, processRestarted = false)
         }
     }
 
-    private fun onReschedule(ctx: Context, processRestarted: Boolean) {
+    private fun onReschedule(ctx: Context, action: String?, processRestarted: Boolean) {
+        NightLog.add(ctx, "reschedule ${action?.substringAfterLast('.')}")
         val now = System.currentTimeMillis()
         // Alarms do not survive a reboot: a pending snooze is re-armed, a dead ring is closed (B1).
         val snoozeAt = AlarmStore.snoozeUntilMs(ctx)

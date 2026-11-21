@@ -174,6 +174,8 @@ export const en = {
     appearance: 'Appearance',
     upcomingNotif: 'Upcoming alarm notification',
     upcomingNotifHint: 'Shows the next alarm in the notification shade, with a button to skip it.',
+    shareDiagnostics: 'Share diagnostics',
+    shareDiagnosticsHint: 'Night log and why the app was stopped, to send when a night went wrong.',
     exportData: 'Export My Data',
     deleteHistory: 'Delete History',
     localOnly: 'Local Storage Only',

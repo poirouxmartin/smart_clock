@@ -102,9 +102,11 @@ class SleepTrackingService : Service(), SensorEventListener {
 
         // Called for every startForegroundService, so the foreground promise is kept even if we stop below.
         startForegroundNotification()
+        NightLog.add(this, if (intent == null) "service sticky restart" else "service start")
 
         val session = AlarmStore.sessionId(this)
         if (AlarmStore.state(this) != AlarmStore.TRACKING || session == null) {
+            NightLog.add(this, "service stops itself, state=${AlarmStore.state(this)}")
             stopSelf()
             return START_NOT_STICKY
         }
@@ -217,6 +219,7 @@ class SleepTrackingService : Service(), SensorEventListener {
     private fun evaluate(now: Long, activity: Double) {
         if (now >= targetAtMs) {
             // Past target: the fallback alarm owns the wake-up now.
+            NightLog.add(applicationContext, "service past target, stopping")
             stopListening()
             stopSelf()
             return
@@ -229,6 +232,7 @@ class SleepTrackingService : Service(), SensorEventListener {
         val reason = WakeDecider.decide(now, windowStartMs, targetAtMs, history, recent, onset, AutoStore.freshApiConfidence(this, now))
         if (reason != null) {
             Log.i(TAG, "Smart wake: $reason")
+            NightLog.add(applicationContext, "smart wake $reason")
             stopListening()
             try {
                 ContextCompat.startForegroundService(
@@ -278,6 +282,7 @@ class SleepTrackingService : Service(), SensorEventListener {
     }
 
     override fun onDestroy() {
+        NightLog.add(this, "service destroyed epochs=${epochs.size}")
         running = false
         val handler = sensorHandler
         val thread = sensorThread

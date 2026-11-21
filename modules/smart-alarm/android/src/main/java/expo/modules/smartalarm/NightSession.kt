@@ -59,10 +59,14 @@ object NightSession {
             Log.w(TAG, "Cannot start SleepTrackingService, fallback alarm stays armed", e)
             postTapNotification(ctx)
         }
+        // Watchdog: restarts the tracking service if Android kills it without a sticky restart.
+        AutoManager.scheduleNightCheck(ctx, now)
+        NightLog.add(ctx, "start target=${NightLog.time(targetAtMs)} window=$windowMinutes auto=$auto exact=$exact")
         return exact
     }
 
     fun cancel(ctx: Context) {
+        NightLog.add(ctx, "cancel state=${AlarmStore.state(ctx)}")
         AlarmScheduler.cancel(ctx)
         ctx.stopService(Intent(ctx, SleepTrackingService::class.java))
         if (AlarmStore.state(ctx) == AlarmStore.RINGING) {
@@ -90,6 +94,9 @@ object NightSession {
             SleepTrackingService.running,
             afterBoot,
         )
+        if (plan != AlarmPolicy.TrackingRepair.NONE) {
+            NightLog.add(ctx, "repair $plan target=${NightLog.time(target)}")
+        }
         when (plan) {
             AlarmPolicy.TrackingRepair.NONE -> return
             AlarmPolicy.TrackingRepair.RESTART_SERVICE -> {

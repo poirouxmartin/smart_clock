@@ -92,6 +92,7 @@ type SmartAlarmNative = {
   previewSound(id: string): Promise<void>;
   stopPreview(): Promise<void>;
   getWakeLog(): Promise<string>;
+  getDiagnostics(): Promise<string>;
   getAppVersion(): Promise<string>;
   getVersionInfo(): Promise<VersionInfo>;
   downloadAndInstallUpdate(url: string, expectedVersion: string): Promise<string>;
@@ -166,6 +167,7 @@ const fallback: SmartAlarmNative = {
   previewSound: async () => {},
   stopPreview: async () => {},
   getWakeLog: async () => '[]',
+  getDiagnostics: async () => '',
   getAppVersion: async () => '?',
   getVersionInfo: async () => ({ versionName: '0.0.0', versionCode: 0, releasesApiUrl: '', apkUrlPrefix: '' }),
   downloadAndInstallUpdate: async () => 'bad_url',
@@ -214,6 +216,7 @@ export const getWakeLog = async (): Promise<WakeLogEntry[]> => {
     return [];
   }
 };
+export const getDiagnostics = () => native.getDiagnostics();
 export const getAppVersion = () => native.getAppVersion();
 export const getRingState = () => native.getRingState();
 export const stopRing = () => native.stopRing();
@@ -254,6 +257,7 @@ export const SmartAlarm = {
   previewSound,
   stopPreview,
   getWakeLog,
+  getDiagnostics,
   getAppVersion,
   getRingState,
   stopRing,

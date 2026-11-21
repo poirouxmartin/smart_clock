@@ -156,6 +156,7 @@ class RingService : Service() {
         if (ringing) return START_NOT_STICKY
 
         reason = fireReason
+        NightLog.add(this, "ring start reason=$reason")
         ringing = true
         ringStartedMs = System.currentTimeMillis()
         val start = Snooze.ringStart(reason, WakeOptions.rampSeconds(this) * 1000L)
@@ -369,6 +370,7 @@ class RingService : Service() {
     }
 
     private fun stopAndFinish() {
+        NightLog.add(this, "ring stop reason=$reason state=${AlarmStore.state(this)}")
         stopRinging()
         AlarmScheduler.cancelSnooze(this)
         AlarmStore.clearSnooze(this)

@@ -39,6 +39,7 @@ class SmartAlarmModule : Module() {
         AsyncFunction("previewSound") { id: String -> SoundPreview.play(context, id) }
         AsyncFunction("stopPreview") { SoundPreview.stop() }
         AsyncFunction("getWakeLog") { WakeLog.read(context) }
+        AsyncFunction("getDiagnostics") { getDiagnostics() }
         AsyncFunction("getAppVersion") { WakeLog.appVersion(context) }
         AsyncFunction("getVersionInfo") { AppUpdater.versionInfo(context) }
         AsyncFunction("downloadAndInstallUpdate") { url: String, expectedVersion: String, promise: expo.modules.kotlin.Promise ->
@@ -145,6 +146,38 @@ class SmartAlarmModule : Module() {
             "notifications" to NotificationManagerCompat.from(ctx).areNotificationsEnabled(),
             "ignoringBatteryOptimizations" to pm.isIgnoringBatteryOptimizations(ctx.packageName),
         )
+    }
+
+    private fun getDiagnostics(): String {
+        val ctx = context
+        val perms = getPermissions()
+        val restricted = if (Build.VERSION.SDK_INT >= 28) {
+            ctx.getSystemService(android.app.ActivityManager::class.java).isBackgroundRestricted
+        } else {
+            "n/a"
+        }
+        val bucket = if (Build.VERSION.SDK_INT >= 28) {
+            ctx.getSystemService(android.app.usage.UsageStatsManager::class.java).appStandbyBucket
+        } else {
+            "n/a"
+        }
+        return buildString {
+            appendLine("App ${WakeLog.appVersion(ctx)}")
+            appendLine("Device ${Build.MANUFACTURER} ${Build.MODEL} sdk=${Build.VERSION.SDK_INT}")
+            appendLine("ignoringBatteryOptimizations=${perms["ignoringBatteryOptimizations"]}")
+            appendLine("exactAlarm=${perms["exactAlarm"]}")
+            appendLine("backgroundRestricted=$restricted")
+            appendLine("standbyBucket=$bucket")
+            appendLine("state=${AlarmStore.state(ctx)} target=${NightLog.stamp(AlarmStore.targetAtMs(ctx))}")
+            appendLine()
+            appendLine("== Process exits ==")
+            appendLine(NightLog.exitReasons(ctx))
+            appendLine()
+            appendLine("== Night log ==")
+            appendLine(NightLog.read(ctx))
+            appendLine("== Wake log ==")
+            appendLine(WakeLog.read(ctx))
+        }
     }
 
     private fun openExactAlarmSettings() {

@@ -20,6 +20,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Cannot start RingService for reason=$reason", e)
+                NightLog.add(ctx, "ring start refused reason=$reason ${e.javaClass.simpleName}")
                 // Never a silent miss: a full-screen notification lets AlarmActivity start the ring.
                 if (Snooze.onRingStartRefused(reason) == Snooze.Refused.FULL_SCREEN_NOTIFICATION) {
                     try {
@@ -49,9 +50,11 @@ class AlarmReceiver : BroadcastReceiver() {
                 kotlin.math.abs(System.currentTimeMillis() - AutoStore.currentTargetMs(ctx)) < AUTO_TOLERANCE_MS
             if (state == AlarmStore.RINGING || ((state == AlarmStore.DONE || state == AlarmStore.IDLE) && !autoDue)) {
                 Log.i(TAG, "Ignoring $reason alarm, state=$state")
+                NightLog.add(ctx, "alarm ignored reason=$reason state=$state")
                 return
             }
         }
+        NightLog.add(ctx, "alarm fired reason=$reason state=${AlarmStore.state(ctx)}")
         startRing(ctx, reason)
     }
 }

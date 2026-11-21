@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Share } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useI18n } from '@/modules/i18n';
@@ -70,6 +70,15 @@ export function SettingsScreen() {
     );
   }, []);
 
+  const handleShareDiagnostics = useCallback(async () => {
+    try {
+      const message = await SmartAlarm.getDiagnostics();
+      await Share.share({ message });
+    } catch (e) {
+      Alert.alert(tCommon('error'), tSettings('exportError'));
+    }
+  }, []);
+
   const handleOpenGithub = useCallback(() => {
     Linking.openURL('https://github.com/poirouxmartin/smart_clock');
   }, []);
@@ -118,6 +127,8 @@ export function SettingsScreen() {
       <Card title={tSettings('about')} icon="information-circle-outline">
         <Row label={tSettings('version')} value={version} />
         <Row label={tSettings('github')} onPress={handleOpenGithub} />
+        <Row label={tSettings('shareDiagnostics')} onPress={handleShareDiagnostics} />
+        <Text style={styles.caption}>{tSettings('shareDiagnosticsHint')}</Text>
       </Card>
     </Screen>
   );

@@ -174,6 +174,8 @@ export const fr = {
     appearance: 'Apparence',
     upcomingNotif: 'Notification du réveil prévu',
     upcomingNotifHint: 'Affiche le prochain réveil dans la barre de notifications, avec un bouton pour le passer.',
+    shareDiagnostics: 'Partager le diagnostic',
+    shareDiagnosticsHint: 'Journal des nuits et raison des arrêts de l\'appli, à envoyer quand une nuit a mal tourné.',
     exportData: 'Exporter mes données',
     deleteHistory: 'Supprimer l\'historique',
     localOnly: 'Stockage local uniquement',

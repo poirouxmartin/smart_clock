@@ -81,6 +81,19 @@ object AlarmPolicy {
         return if (afterBoot) TrackingRepair.RING_LATE else TrackingRepair.NONE
     }
 
+    /** Delay between two checks of a running night. */
+    const val NIGHT_CHECK_MS = 15 * 60_000L
+
+    /**
+     * Next check of a TRACKING night, manual or automatic, up to its target. Each check restarts a
+     * tracking service that Android killed without restarting it (night of 20-21/11/2026).
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun trackingCheckAt(isAuto: Boolean, nowMs: Long, windowStartMs: Long, targetAtMs: Long): Long? {
+        if (nowMs >= targetAtMs) return null
+        return minOf(nowMs + NIGHT_CHECK_MS, targetAtMs)
+    }
+
     internal fun searchFromMs(nowMs: Long, state: String, firedAtMs: Long, currentTargetMs: Long): Long {
         val consumed = state == AlarmStore.DONE &&
             firedAtMs > 0L &&
